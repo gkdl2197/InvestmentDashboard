@@ -25,7 +25,7 @@
         .control-panel { background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 20px; }
         .control-panel h3 { margin-top: 0; color: #ffffff; }
         .form-group { display: flex; gap: 15px; margin-bottom: 15px; }
-        .form-item { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+        .form-item { flex: 1; display: flex; flex-direction: column; gap: 5px; position: relative; } /* position추가로 자동완성 박스 고정 */
         .form-item label { font-size: 12px; color: #8b949e; }
         input, select { background-color: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; padding: 8px; font-size: 14px; }
         .btn-group { display: flex; gap: 10px; }
@@ -33,6 +33,18 @@
         button:hover { background-color: #30363d; }
         .btn-buy { background-color: #238636; border-color: #2ea44f; color: #ffffff; }
         .btn-buy:hover { background-color: #2ea44f; }
+
+        /* 💡 [복구] 실시간 검색 자동완성 추천 레이어 UI */
+        .autocomplete-suggestions {
+            position: absolute; top: 58px; left: 0; right: 0;
+            background-color: #1f242c; border: 1px solid #30363d; border-radius: 6px;
+            z-index: 999; max-height: 200px; overflow-y: auto; display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .suggestion-item { padding: 10px; cursor: pointer; font-size: 13px; color: #c9d1d9; border-bottom: 1px solid #30363d; }
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:hover { background-color: #30363d; color: #ffffff; }
+        .suggestion-item span { color: #58a6ff; font-size: 11px; float: right; margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -94,7 +106,9 @@
                 </div>
                 <div class="form-item">
                     <label>종목명 또는 티커</label>
-                    <input type="text" id="input-name" placeholder="예: 삼성전자 또는 AAPL">
+                    <input type="text" id="input-name" placeholder="예: 삼성전자 또는 AAPL" autocomplete="off">
+                    
+                    <div id="suggestions-box" class="autocomplete-suggestions"></div>
                 </div>
                 <div class="form-item">
                     <label>수량</label>
@@ -114,7 +128,10 @@
     </div>
 
     <script>
-        document.addEventListener("DOMContentLoaded", loadDashboardData);
+        document.addEventListener("DOMContentLoaded", function() {
+            loadDashboardData();
+            initAutocomplete(); // 자동완성 스크립트 시동
+        });
 
         function toCommas(val) {
             if (val === undefined || val === null || isNaN(val)) return "0";
@@ -125,7 +142,6 @@
             fetch("/api/portfolio")
                 .then(res => res.json())
                 .then(data => {
-                    // 상단 헤더 및 요약 정보 바인딩
                     document.getElementById("fx-display").innerText = "환율: ₩ " + toCommas(data.exchange_rate);
                     document.getElementById("total-eval").innerText = "₩ " + toCommas(data.total_evaluation);
                     
@@ -144,10 +160,8 @@
                     const tbody = document.getElementById("portfolio-table-body");
                     tbody.innerHTML = "";
 
-                    // 💡 [매핑 엔진 교정] 백엔드가 소문자로 던져주는 portfolio 키값과 완전히 싱크를 맞췄습니다.
                     if (data && data.portfolio) {
-                        const markets = ["KR", "US"];
-                        markets.forEach(m => {
+                        ["KR", "US"].forEach(m => {
                             if (data.portfolio[m] && Array.isArray(data.portfolio[m])) {
                                 data.portfolio[m].forEach(stock => {
                                     const tr = document.createElement("tr");
@@ -155,8 +169,8 @@
                                     const isPlus = totalProfitKrw >= 0;
                                     
                                     tr.innerHTML = `
-                                        <td><strong style="color: ${stock.market === 'US' ? '#58a6ff' : '#ff7b72'}">${stock.market || m}</strong></td>
-                                        <td><b style="color:#ffffff">${stock.name || ''}</b><br><span style="color:#8b949e; font-size:11px;">${stock.symbol || ''}</span></td>
+                                        <td><strong style="color: ${stock.market === 'US' ? '#58a6ff' : '#ff7b72'}">${stock.market}</strong></td>
+                                        <td><b style="color:#ffffff">${stock.name}</b><br><span style="color:#8b949e; font-size:11px;">${stock.symbol}</span></td>
                                         <td class="text-right font-mono">${stock.quantity}</td>
                                         <td class="text-right font-mono">${toCommas(stock.avg_price)}</td>
                                         <td class="text-right font-mono" style="color:#c9d1d9">${toCommas(stock.current_price)}</td>
@@ -170,6 +184,58 @@
                         });
                     }
                 }).catch(err => console.error("데이터 로드 실패:", err));
+        }
+
+        // 💡 [복구 및 튜닝] 타이핑 실시간 감지형 자동완성 코어 로직
+        function initAutocomplete() {
+            const nameInput = document.getElementById("input-name");
+            const box = document.getElementById("suggestions-box");
+            const marketSelect = document.getElementById("input-market");
+
+            nameInput.addEventListener("input", function() {
+                const query = nameInput.value.trim();
+                const market = marketSelect.value;
+
+                // 2글자 미만은 과도한 API 호출 방지를 위해 패스
+                if (query.length < 2) {
+                    box.innerHTML = "";
+                    box.style.display = "none";
+                    return;
+                }
+
+                // 백엔드 /api/stock/search 라우트 호출
+                fetch(`/api/stock/search?market=${market}&query=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(items => {
+                        if (items && items.length > 0) {
+                            box.innerHTML = "";
+                            items.forEach(item => {
+                                const div = document.createElement("div");
+                                div.className = "suggestion-item";
+                                div.innerHTML = `${item.name} <span>${item.symbol}</span>`;
+                                
+                                // 마우스로 선택 시 인풋창에 값 주입하고 박스 닫기
+                                div.addEventListener("click", function() {
+                                    nameInput.value = item.name;
+                                    box.innerHTML = "";
+                                    box.style.display = "none";
+                                });
+                                box.appendChild(div);
+                            });
+                            box.style.display = "block";
+                        } else {
+                            box.style.display = "none";
+                        }
+                    }).catch(err => console.error("자동완성 에러:", err));
+            });
+
+            // 화면 다른 곳 누르면 박스 닫히게 처리
+            document.addEventListener("click", function(e) {
+                if (e.target !== nameInput) {
+                    box.innerHTML = "";
+                    box.style.display = "none";
+                }
+            });
         }
 
         function submitAction(actionType) {
