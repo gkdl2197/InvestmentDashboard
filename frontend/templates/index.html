@@ -2,93 +2,113 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IVD - 투자 대시보드</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <title>Investment Dashboard - 실시간 자산 전광판</title>
     <style>
-        body { background-color: #0b0f19; color: #cbd5e1; }
+        body { background-color: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; padding: 20px; }
+        .container { max-w-width: 1200px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; padding-bottom: 20px; margin-bottom: 20px; }
+        h1 { margin: 0; color: #ffffff; }
+        .summary-board { display: flex; gap: 20px; margin-bottom: 30px; }
+        .card { flex: 1; background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 15px; }
+        .card p { margin: 0; color: #8b949e; font-size: 12px; }
+        .card h2 { margin: 10px 0 0 0; font-size: 24px; color: #ffffff; }
+        
+        table { width: 100%; border-collapse: collapse; background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; margin-bottom: 30px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #30363d; }
+        th { background-color: #1f242c; color: #8b949e; font-size: 13px; }
+        td { font-size: 14px; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .plus { color: #3fb950; }
+        .minus { color: #f85149; }
+        
+        .control-panel { background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 20px; }
+        .control-panel h3 { margin-top: 0; color: #ffffff; }
+        .form-group { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-item { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+        .form-item label { font-size: 12px; color: #8b949e; }
+        input, select { background-color: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; padding: 8px; font-size: 14px; }
+        .btn-group { display: flex; gap: 10px; }
+        button { background-color: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; padding: 10px 20px; font-weight: bold; cursor: pointer; }
+        button:hover { background-color: #30363d; }
+        .btn-buy { background-color: #238636; border-color: #2ea44f; color: #ffffff; }
+        .btn-buy:hover { background-color: #2ea44f; }
     </style>
 </head>
-<body class="p-4 font-sans">
+<body>
 
-    <div class="max-w-5xl mx-auto space-y-6">
-        <header class="flex justify-between items-center border-b border-gray-800 pb-3">
+    <div class="container">
+        <header>
+            <h1>📊 자산 포트폴리오 대시보드</h1>
             <div>
-                <h1 class="text-xl font-bold text-white">📊 IVD 자산 전광판</h1>
-            </div>
-            <div class="text-xs flex gap-2">
-                <span id="fx-display" class="bg-gray-800 px-2 py-1 rounded text-blue-400">환율 로딩 중...</span>
-                <button onclick="loadDashboardData()" class="bg-blue-600 text-white px-2 py-1 rounded">새로고침</button>
+                <span id="fx-display" style="margin-right: 15px; font-weight: bold; color: #58a6ff;">환율: 로딩 중...</span>
+                <button onclick="loadDashboardData()">🔄 새로고침</button>
             </div>
         </header>
 
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-gray-900 p-3 rounded-xl border border-gray-800">
-                <p class="text-xs text-gray-400">총 평가 자산</p>
-                <p id="total-eval" class="text-lg font-bold text-white mt-1">₩ 0</p>
+        <section class="summary-board">
+            <div class="card">
+                <p>총 평가 자산</p>
+                <h2 id="total-eval">₩ 0</h2>
             </div>
-            <div class="bg-gray-900 p-3 rounded-xl border border-gray-800">
-                <p class="text-xs text-gray-400">총 손익액</p>
-                <p id="total-profit" class="text-lg font-bold mt-1">₩ 0</p>
+            <div class="card">
+                <p>총 손익액</p>
+                <h2 id="total-profit">₩ 0</h2>
             </div>
-            <div class="bg-gray-900 p-3 rounded-xl border border-gray-800">
-                <p class="text-xs text-gray-400">총 수익률</p>
-                <p id="total-profit-percent" class="text-lg font-bold mt-1">0.0%</p>
+            <div class="card">
+                <p>총 수익률</p>
+                <h2 id="total-profit-percent">0.0%</h2>
             </div>
-            <div class="bg-gray-900 p-3 rounded-xl border border-gray-800">
-                <p class="text-xs text-gray-400">오늘의 손익</p>
-                <p id="total-today-profit" class="text-lg font-bold mt-1">₩ 0</p>
-            </div>
-        </section>
-
-        <section class="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                    <thead>
-                        <tr class="bg-gray-800 text-gray-400 border-b border-gray-700">
-                            <th class="p-3">시장</th>
-                            <th class="p-3">종목명/코드</th>
-                            <th class="p-3 text-right">보유량</th>
-                            <th class="p-3 text-right">평단가</th>
-                            <th class="p-3 text-right">현재가</th>
-                            <th class="p-3 text-right">평가금액</th>
-                            <th class="p-3 text-right">수익률</th>
-                            <th class="p-3 text-center">관리</th>
-                        </tr>
-                    </thead>
-                    <tbody id="portfolio-table-body" class="divide-y divide-gray-800">
-                        </tbody>
-                </table>
+            <div class="card">
+                <p>오늘의 총 손익</p>
+                <h2 id="total-today-profit">₩ 0</h2>
             </div>
         </section>
 
-        <section class="bg-gray-900 p-4 rounded-xl border border-gray-800 space-y-4">
-            <h3 class="text-sm font-semibold text-white">🛠️ 자산 반영 제어반</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                <div>
-                    <label class="text-gray-400 block mb-1">시장</label>
-                    <select id="input-market" class="w-full bg-gray-800 rounded p-2 text-white border border-gray-700">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>시장</th>
+                    <th>종목명 (코드)</th>
+                    <th class="text-right">보유량</th>
+                    <th class="text-right">평단가</th>
+                    <th class="text-right">현재가</th>
+                    <th class="text-right">평가금액 (비중)</th>
+                    <th class="text-right">수익률 (손익)</th>
+                    <th class="text-center">작업</th>
+                </tr>
+            </thead>
+            <tbody id="portfolio-table-body">
+                </tbody>
+        </table>
+
+        <section class="control-panel">
+            <h3>🛠️ 자산 추가 및 수량 변동 반영</h3>
+            <div class="form-group">
+                <div class="form-item">
+                    <label>시장 구분</label>
+                    <select id="input-market">
                         <option value="KR">국내 주식 (KR)</option>
                         <option value="US">미국 주식 (US)</option>
                     </select>
                 </div>
-                <div>
-                    <label class="text-gray-400 block mb-1">종목명/티커</label>
-                    <input type="text" id="input-name" class="w-full bg-gray-800 rounded p-2 text-white border border-gray-700">
+                <div class="form-item">
+                    <label>종목명 또는 티커</label>
+                    <input type="text" id="input-name" placeholder="예: 삼성전자 또는 AAPL">
                 </div>
-                <div>
-                    <label class="text-gray-400 block mb-1">수량</label>
-                    <input type="number" id="input-quantity" class="w-full bg-gray-800 rounded p-2 text-white border border-gray-700">
+                <div class="form-item">
+                    <label>수량</label>
+                    <input type="number" id="input-quantity" placeholder="주식 수 입력">
                 </div>
-                <div>
-                    <label class="text-gray-400 block mb-1">단가</label>
-                    <input type="number" id="input-price" class="w-full bg-gray-800 rounded p-2 text-white border border-gray-700">
+                <div class="form-item">
+                    <label>단가</label>
+                    <input type="number" id="input-price" placeholder="평단가/매수단가">
                 </div>
             </div>
-            <div class="grid grid-cols-3 gap-2 text-xs font-bold">
-                <button onclick="submitAction('buy')" class="bg-green-600 text-white py-2 rounded">추가 매수 (+)</button>
-                <button onclick="submitAction('sell')" class="bg-red-600 text-white py-2 rounded">부분 매도 (-)</button>
-                <button onclick="submitAction('update')" class="bg-blue-600 text-white py-2 rounded">강제 갱신</button>
+            <div class="btn-group">
+                <button onclick="submitAction('buy')" class="btn-buy">추가 매수 (+)</button>
+                <button onclick="submitAction('sell')">부분 매도 (-)</button>
+                <button onclick="submitAction('update')">값 강제 재설정</button>
             </div>
         </section>
     </div>
@@ -96,7 +116,7 @@
     <script>
         document.addEventListener("DOMContentLoaded", loadDashboardData);
 
-        function numStr(val) {
+        function toCommas(val) {
             if (val === undefined || val === null || isNaN(val)) return "0";
             return Number(val).toLocaleString();
         }
@@ -105,20 +125,20 @@
             fetch("/api/portfolio")
                 .then(res => res.json())
                 .then(data => {
-                    const rate = data.exchange_rate || 1350;
-                    document.getElementById("fx-display").innerText = "환율: ₩ " + numStr(rate);
-                    document.getElementById("total-eval").innerText = "₩ " + numStr(data.total_evaluation);
+                    document.getElementById("fx-display").innerText = "환율: ₩ " + toCommas(data.exchange_rate);
+                    document.getElementById("total-eval").innerText = "₩ " + toCommas(data.total_evaluation);
                     
                     const pEl = document.getElementById("total-profit");
-                    pEl.innerText = "₩ " + numStr(data.total_profit);
-                    pEl.className = data.total_profit >= 0 ? "text-lg font-bold text-green-400 mt-1" : "text-lg font-bold text-red-400 mt-1";
+                    pEl.innerText = "₩ " + toCommas(data.total_profit);
+                    pEl.className = data.total_profit >= 0 ? "plus" : "minus";
 
-                    document.getElementById("total-profit-percent").innerText = (data.total_profit_percent || 0) + "%";
-                    document.getElementById("total-profit-percent").className = data.total_profit_percent >= 0 ? "text-lg font-bold text-green-400 mt-1" : "text-lg font-bold text-red-400 mt-1";
+                    const pctEl = document.getElementById("total-profit-percent");
+                    pctEl.innerText = (data.total_profit_percent || 0) + "%";
+                    pctEl.className = data.total_profit_percent >= 0 ? "plus" : "minus";
 
                     const tEl = document.getElementById("total-today-profit");
-                    tEl.innerText = "₩ " + numStr(data.total_today_profit);
-                    tEl.className = data.total_today_profit >= 0 ? "text-lg font-bold text-green-400 mt-1" : "text-lg font-bold text-red-400 mt-1";
+                    tEl.innerText = "₩ " + toCommas(data.total_today_profit);
+                    tEl.className = data.total_today_profit >= 0 ? "plus" : "minus";
 
                     const tbody = document.getElementById("portfolio-table-body");
                     tbody.innerHTML = "";
@@ -128,34 +148,33 @@
                             if (data.portfolio[m]) {
                                 data.portfolio[m].forEach(stock => {
                                     const tr = document.createElement("tr");
-                                    const profitClass = (stock.total_profit_krw || 0) >= 0 ? "text-green-400 text-right" : "text-red-400 text-right";
+                                    const isPlus = (stock.total_profit_krw || 0) >= 0;
                                     
                                     tr.innerHTML = `
-                                        <td class="p-3"><span class="bg-gray-800 px-1 py-0.5 rounded">${stock.market}</span></td>
-                                        <td class="p-3 text-white font-medium">${stock.name}<br><span class="text-gray-500 text-xs">${stock.symbol}</span></td>
-                                        <td class="p-3 text-right">${stock.quantity}</td>
-                                        <td class="p-3 text-right">${numStr(stock.avg_price)}</td>
-                                        <td class="p-3 text-right text-gray-300">${numStr(stock.current_price)}</td>
-                                        <td class="p-3 text-right text-white">${numStr(stock.eval_amount_krw)} (${stock.weight_percent || 0}%)</td>
-                                        <td class="p-3 ${profitClass}">${stock.total_profit_percent}%<br><span class="text-xs">${numStr(stock.total_profit_krw)}</span></td>
-                                        <td class="p-3 text-center"><button onclick="deleteStock(${stock.id})" class="text-red-500">삭제</button></td>
+                                        <td><strong style="color: ${stock.market==='US'?'#58a6ff':'#ff7b72'}">${stock.market}</strong></td>
+                                        <td><b style="color:#ffffff">${stock.name}</b><br><span style="color:#8b949e; font-size:11px;">${stock.symbol}</span></td>
+                                        <td class="text-right">${stock.quantity}</td>
+                                        <td class="text-right">${toCommas(stock.avg_price)}</td>
+                                        <td class="text-right" style="color:#c9d1d9">${toCommas(stock.current_price)}</td>
+                                        <td class="text-right"><b style="color:#ffffff">${toCommas(stock.eval_amount_krw)}</b><br><span style="color:#8b949e; font-size:11px;">(${stock.weight_percent || 0}%)</span></td>
+                                        <td class="text-right ${isPlus?'plus':'minus'}"><b>${stock.total_profit_percent}%</b><br><span style="font-size:11px;">${isPlus?'+':''}${toCommas(stock.total_profit_krw)}</span></td>
+                                        <td class="text-center"><button onclick="deleteStock(${stock.id})" style="color:#f85149; padding:4px 8px; font-size:12px;">삭제</button></td>
                                     `;
                                     tbody.appendChild(tr);
                                 });
                             }
                         });
                     }
-                }).catch(err => console.error(err));
+                }).catch(err => console.error("데이터 로드 실패:", err));
         }
 
         function submitAction(actionType) {
             const market = document.getElementById("input-market").value;
-            const nameInput = document.getElementById("input-name").value;
-            const name = nameInput ? nameInput.trim() : "";
+            const name = document.getElementById("input-name").value.trim();
             const quantity = document.getElementById("input-quantity").value;
             const price = document.getElementById("input-price").value;
 
-            if (!name) { alert("종목명을 입력하세요."); return; }
+            if (!name) { alert("종목명 혹은 티커를 입력하세요."); return; }
 
             const payload = {
                 action: actionType, market: market, name: name,
@@ -183,7 +202,7 @@
         }
 
         function deleteStock(id) {
-            if (!confirm("삭제하시겠습니까?")) return;
+            if (!confirm("해당 종목을 완전 삭제하시겠습니까?")) return;
             fetch("/api/portfolio/save", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
