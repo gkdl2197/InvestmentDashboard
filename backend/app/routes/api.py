@@ -123,29 +123,37 @@ def search_stock():
         return jsonify([])
     
     results = []
-    # 네이버 차단 방지용 브라우저 위장 헤더
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+        'Referer': 'https://finance.naver.com'
     }
     
     if market == "KR":
         url = f"https://ac.stock.naver.com/ac?q={query}&target=stock"
         try:
             res = requests.get(url, headers=headers, timeout=5).json()
-            # 💡 [네이버 규격 완벽 파싱] 네이버는 내부 데이터가 items[0][0] 등 복잡한 구조로 들어옵니다.
+            # 💡 [2026 최종 네이버 다차원 구조 완전 정복]
             items = res.get("items", [])
-            if items and isinstance(items, list) and len(items) > 0:
-                # 네이버 특유의 중첩 리스트 안전하게 해체
-                sub_items = items[0] if isinstance(items[0], list) else items
-                for item in sub_items:
-                    if isinstance(item, list) and len(item) >= 2:
-                        # 구조가 [ "005930", "삼성전자", ... ] 형태인 경우 방어
-                        results.append({"symbol": item[0], "name": item[1]})
-                    elif isinstance(item, dict):
-                        # 구조가 { "code": "005930", "name": "삼성전자" } 형태인 경우 방어
-                        results.append({"symbol": item.get("code", item.get("symbol", "")), "name": item.get("name", "")})
+            if items and isinstance(items, list):
+                # 네이버의 중첩 배열(List inside List) 또는 단일 배열 대응 가드
+                for sub in items:
+                    if not sub:
+                        continue
+                    # 만약 데이터가 또 배열로 감싸져 있다면 한 껍질 더 벗깁니다.
+                    target_list = sub if isinstance(sub, list) else [sub]
+                    
+                    for item in target_list:
+                        if isinstance(item, list) and len(item) >= 2:
+                            # 족보 구조 A: [ "005930", "삼성전자", ... ]
+                            results.append({"symbol": str(item[0]), "name": str(item[1])})
+                        elif isinstance(item, dict):
+                            # 족보 구조 B: { "code": "005930", "name": "삼성전자" }
+                            sym = item.get("code") or item.get("symbol") or item.get("id") or ""
+                            nm = item.get("name") or item.get("title") or ""
+                            if sym and nm:
+                                results.append({"symbol": str(sym), "name": str(nm)})
         except Exception as e:
-            print(f"국내 자동검색 에러: {e}")
+            print(f"❌ 국내 자동검색 특수 파싱 실패: {e}")
             
     elif market == "US":
         api_key = Config.FINNHUB_API_KEY
@@ -153,13 +161,13 @@ def search_stock():
         try:
             res = requests.get(url, timeout=5).json()
             if "result" in res and isinstance(res["result"], list):
-                for item in res["result"][:5]:
+                for item in res["result"][:6]:
                     results.append({
                         "symbol": item.get("symbol", ""), 
                         "name": item.get("description", item.get("symbol", ""))
                     })
         except Exception as e:
-            print(f"미국 자동검색 에러: {e}")
+            print(f"❌ 미국 자동검색 실패: {e}")
             
     return jsonify(results[:8])
 
