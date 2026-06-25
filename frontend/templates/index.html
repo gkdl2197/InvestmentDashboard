@@ -105,6 +105,11 @@
     <script>
         document.addEventListener("DOMContentLoaded", loadDashboardData);
 
+        function safeLocaleString(value) {
+            if (value === undefined || value === null || isNaN(value)) return "0";
+            return Number(value).toLocaleString();
+        }
+
         function loadDashboardData() {
             fetch("/api/portfolio")
                 .then(res => res.json())
@@ -114,44 +119,50 @@
                         return;
                     }
                     
-                    // 환율 및 상단 헤더 바운딩
-                    document.getElementById("fx-display").innerText = `환율: ₩ ${data.exchange_rate.toLocaleString()}`;
-                    document.getElementById("total-eval").innerText = `₩ ${data.total_evaluation.toLocaleString()}`;
+                    // 안전한 예외처리 바인딩
+                    const rate = data.exchange_rate || 0;
+                    const totalEval = data.total_evaluation || 0;
+                    const totalProfit = data.total_profit || 0;
+                    const totalProfitPercent = data.total_profit_percent || 0;
+                    const totalTodayProfit = data.total_today_profit || 0;
+
+                    document.getElementById("fx-display").innerText = `환율: ₩ ${safeLocaleString(rate)}`;
+                    document.getElementById("total-eval").innerText = `₩ ${safeLocaleString(totalEval)}`;
                     
                     const profitEl = document.getElementById("total-profit");
-                    profitEl.innerText = `₩ ${data.total_profit.toLocaleString()}`;
-                    profitEl.className = data.total_profit >= 0 ? "text-lg md:text-2xl font-bold text-emerald-400 mt-1" : "text-lg md:text-2xl font-bold text-red-400 mt-1";
+                    profitEl.innerText = `₩ ${safeLocaleString(totalProfit)}`;
+                    profitEl.className = totalProfit >= 0 ? "text-lg md:text-2xl font-bold text-emerald-400 mt-1" : "text-lg md:text-2xl font-bold text-red-400 mt-1";
 
                     const percentEl = document.getElementById("total-profit-percent");
-                    percentEl.innerText = `${data.total_profit_percent}%`;
-                    percentEl.className = data.total_profit_percent >= 0 ? "text-lg md:text-2xl font-bold text-emerald-400 mt-1" : "text-lg md:text-2xl font-bold text-red-400 mt-1";
+                    percentEl.innerText = `${totalProfitPercent}%`;
+                    percentEl.className = totalProfitPercent >= 0 ? "text-lg md:text-2xl font-bold text-emerald-400 mt-1" : "text-lg md:text-2xl font-bold text-red-400 mt-1";
 
                     const todayEl = document.getElementById("total-today-profit");
-                    todayEl.innerText = `₩ ${data.total_today_profit.toLocaleString()}`;
-                    todayEl.className = data.total_today_profit >= 0 ? "text-lg md:text-2xl font-bold text-emerald-400 mt-1" : "text-lg md:text-2xl font-bold text-red-400 mt-1";
+                    todayEl.innerText = `₩ ${safeLocaleString(totalTodayProfit)}`;
+                    todayEl.className = totalTodayProfit >= 0 ? "text-lg md:text-2xl font-bold text-emerald-400 mt-1" : "text-lg md:text-2xl font-bold text-red-400 mt-1";
 
-                    // 테이블 렌더링 엔진 시작
                     const tbody = document.getElementById("portfolio-table-body");
                     tbody.innerHTML = "";
 
                     const markets = ["KR", "US"];
                     markets.forEach(m => {
-                        if (data.portfolio[m]) {
+                        if (data.portfolio && data.portfolio[m]) {
                             data.portfolio[m].forEach(stock => {
                                 const tr = document.createElement("tr");
                                 tr.className = "hover:bg-slate-800/30 transition";
                                 
-                                const profitClass = stock.total_profit_krw >= 0 ? "text-emerald-400 text-right" : "text-red-400 text-right";
+                                const totalProfitKrw = stock.total_profit_krw || 0;
+                                const profitClass = totalProfitKrw >= 0 ? "text-emerald-400 text-right" : "text-red-400 text-right";
                                 
                                 tr.innerHTML = `
-                                    <td class="p-2.5"><span class="px-1.5 py-0.5 rounded text-[10px] ${stock.market === 'US' ? 'bg-indigo-950 text-indigo-400 border border-indigo-900':'bg-amber-950 text-amber-400 border border-amber-900'}">${stock.market}</span></td>
-                                    <td class="p-2.5 font-medium text-white">${stock.name}<br><span class="text-[10px] text-slate-500">${stock.symbol}</span></td>
-                                    <td class="p-2.5 text-right font-mono">${stock.quantity}</td>
-                                    <td class="p-2.5 text-right font-mono">${stock.avg_price.toLocaleString()}</td>
-                                    <td class="p-2.5 text-right font-mono text-slate-300">${stock.current_price.toLocaleString()}</td>
-                                    <td class="p-2.5 text-right font-mono text-white">${stock.eval_amount_krw.toLocaleString()} <span class="text-[10px] text-slate-500">(${stock.weight_percent}%)</span></td>
-                                    <td class="p-2.5 ${profitClass} font-mono">${stock.total_profit_percent}%<br><span class="text-[10px]">${stock.total_profit_krw >= 0 ? '+':''}${stock.total_profit_krw.toLocaleString()}</span></td>
-                                    <td class="p-2.5 text-center"><button onclick="deleteStock(${stock.id}, '${stock.name}')" class="text-red-500 hover:text-red-400 font-medium px-2 py-1">삭제</button></td>
+                                    <td class="p-2.5"><span class="px-1.5 py-0.5 rounded text-[10px] ${stock.market === 'US' ? 'bg-indigo-950 text-indigo-400 border border-indigo-900':'bg-amber-950 text-amber-400 border border-amber-900'}">${stock.market || 'KR'}</span></td>
+                                    <td class="p-2.5 font-medium text-white">${stock.name || ''}<br><span class="text-[10px] text-slate-500">${stock.symbol || ''}</span></td>
+                                    <td class="p-2.5 text-right font-mono">${stock.quantity || 0}</td>
+                                    <td class="p-2.5 text-right font-mono">${safeLocaleString(stock.avg_price)}</td>
+                                    <td class="p-2.5 text-right font-mono text-slate-300">${safeLocaleString(stock.current_price)}</td>
+                                    <td class="p-2.5 text-right font-mono text-white">${safeLocaleString(stock.eval_amount_krw)} <span class="text-[10px] text-slate-500">(${stock.weight_percent || 0}%)</span></td>
+                                    <td class="p-2.5 ${profitClass} font-mono">${stock.total_profit_percent || 0}%<br><span class="text-[10px]">${totalProfitKrw >= 0 ? '+':''}${safeLocaleString(totalProfitKrw)}</span></td>
+                                    <td class="p-2.5 text-center"><button onclick="deleteStock(${stock.id}, '${stock.name || ''}')" class="text-red-500 hover:text-red-400 font-medium px-2 py-1">삭제</button></td>
                                 `;
                                 tbody.appendChild(tr);
                             });
@@ -160,10 +171,11 @@
                 }).catch(err => console.error("데이터 로드 에러:", err));
         }
 
-        // 🎯 [버튼 먹통 최종 해결사] 모든 자산 변동 행위를 /api/portfolio/save 주소로 일원화 전송합니다.
+        // 🎯 [수정 완공] 자바스크립트용 내장 .trim() 함수로 교체하여 에러 원인 제거
         function submitAction(actionType) {
             const market = document.getElementById("input-market").value;
-            const name = document.getElementById("input-name").value.strip ? document.getElementById("input-name").value.strip() : document.getElementById("input-name").value;
+            const rawName = document.getElementById("input-name").value;
+            const name = rawName ? rawName.trim() : "";
             const quantity = document.getElementById("input-quantity").value;
             const price = document.getElementById("input-price").value;
 
@@ -188,7 +200,7 @@
                 if (resData.status === "success") {
                     alert(resData.message);
                     clearInputs();
-                    loadDashboardData(); // 즉각적인 자산 전광판 새로고침
+                    loadDashboardData();
                 } else {
                     alert(`에러: ${resData.message}`);
                 }
