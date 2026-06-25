@@ -121,32 +121,47 @@ def search_stock():
     query = request.args.get("query", "").strip()
     if not query:
         return jsonify([])
+    
     results = []
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    # 네이버 차단 방지용 브라우저 위장 헤더
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
+    }
     
     if market == "KR":
         url = f"https://ac.stock.naver.com/ac?q={query}&target=stock"
         try:
             res = requests.get(url, headers=headers, timeout=5).json()
-            # 💡 네이버 특유의 중첩 구조 배열 안전하게 해체 파싱
+            # 💡 [네이버 규격 완벽 파싱] 네이버는 내부 데이터가 items[0][0] 등 복잡한 구조로 들어옵니다.
             items = res.get("items", [])
-            if items and isinstance(items, list):
-                flat_items = items[0] if isinstance(items[0], list) else items
-                for item in flat_items[:8]:
-                    results.append({"symbol": item.get("code", ""), "name": item.get("name", "")})
+            if items and isinstance(items, list) and len(items) > 0:
+                # 네이버 특유의 중첩 리스트 안전하게 해체
+                sub_items = items[0] if isinstance(items[0], list) else items
+                for item in sub_items:
+                    if isinstance(item, list) and len(item) >= 2:
+                        # 구조가 [ "005930", "삼성전자", ... ] 형태인 경우 방어
+                        results.append({"symbol": item[0], "name": item[1]})
+                    elif isinstance(item, dict):
+                        # 구조가 { "code": "005930", "name": "삼성전자" } 형태인 경우 방어
+                        results.append({"symbol": item.get("code", item.get("symbol", "")), "name": item.get("name", "")})
         except Exception as e:
             print(f"국내 자동검색 에러: {e}")
+            
     elif market == "US":
         api_key = Config.FINNHUB_API_KEY
         url = f"https://finnhub.io/api/v1/search?q={query}&token={api_key}"
         try:
             res = requests.get(url, timeout=5).json()
-            if "result" in res:
+            if "result" in res and isinstance(res["result"], list):
                 for item in res["result"][:5]:
-                    results.append({"symbol": item.get("symbol", ""), "name": item.get("description", "")})
+                    results.append({
+                        "symbol": item.get("symbol", ""), 
+                        "name": item.get("description", item.get("symbol", ""))
+                    })
         except Exception as e:
             print(f"미국 자동검색 에러: {e}")
-    return jsonify(results)
+            
+    return jsonify(results[:8])
 
 @api_blueprint.route("/portfolio/save", methods=["POST"])
 def save_stock():
@@ -169,17 +184,23 @@ def save_stock():
     if not market or not name:
         return jsonify({"status": "error", "message": "필수 입력값이 누락되었습니다."}), 400
 
+    # 💡 [반영 버튼 클릭 시 자동 코드 사냥 엔진]
     if not symbol:
         if market == "KR":
             url = f"https://ac.stock.naver.com/ac?q={name}&target=stock"
             try:
-                res = requests.get(url, timeout=3).json()
+                res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=3).json()
                 items = res.get("items", [])
-                if items and isinstance(items, list):
-                    flat = items[0] if isinstance(items[0], list) else items
-                    if flat:
-                        symbol = flat[0].get("code", "")
-                        name = flat[0].get("name", "")
+                if items and isinstance(items, list) and len(items) > 0:
+                    sub = items[0] if isinstance(items[0], list) else items
+                    if sub and len(sub) > 0:
+                        first = sub[0]
+                        if isinstance(first, list) and len(first) >= 2:
+                            symbol = first[0]
+                            name = first[1]
+                        elif isinstance(first, dict):
+                            symbol = first.get("code", first.get("symbol", ""))
+                            name = first.get("name", "")
             except Exception: pass
         elif market == "US":
             api_key = Config.FINNHUB_API_KEY
@@ -187,45 +208,49 @@ def save_stock():
             try:
                 res = requests.get(url, timeout=3).json()
                 if "result" in res and res["result"]:
-                    symbol = res["result"][0]["symbol"]
-                    name = res["result"][0]["description"]
+                    symbol = res["result"][0].get("symbol", "")
+                    name = res["result"][0].get("description", name)
             except Exception: pass
 
+    # 도저히 못 찾으면 입력값을 대문자 코드로 강제 치환해 크래시 방어
     if not symbol:
         symbol = name.upper()
 
-    check_exist = supabase.table("stock_portfolio").select("*").eq("symbol", symbol).execute()
-    existing_stock = check_exist.data[0] if check_exist.data else None
+    try:
+        check_exist = supabase.table("stock_portfolio").select("*").eq("symbol", symbol).execute()
+        existing_stock = check_exist.data[0] if check_exist.data else None
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"DB 조회 실패: {e}"}), 500
 
     if action == "buy" and existing_stock:
-        ext_qty = float(existing_stock["quantity"] or 0)
-        ext_price = float(existing_stock["avg_price"] or 0)
+        ext_qty = float(existing_stock.get("quantity") or 0)
+        ext_price = float(existing_stock.get("avg_price") or 0)
         total_cost = (ext_qty * ext_price) + (quantity * avg_price)
         new_qty = ext_qty + quantity
         new_avg = round(total_cost / new_qty, 2)
         supabase.table("stock_portfolio").update({"quantity": new_qty, "avg_price": new_avg}).eq("id", existing_stock["id"]).execute()
-        message = f"{name} 추가 매수 완료."
+        message = f"[{name}] 종목 추가 매수 완료!"
     elif action == "sell" and existing_stock:
-        ext_qty = float(existing_stock["quantity"] or 0)
+        ext_qty = float(existing_stock.get("quantity") or 0)
         if ext_qty < quantity:
             return jsonify({"status": "error", "message": "보유량보다 매도량이 많습니다."}), 400
         new_qty = ext_qty - quantity
         if new_qty <= 0:
             supabase.table("stock_portfolio").delete().eq("id", existing_stock["id"]).execute()
-            message = f"{name} 전량 매도 완료."
+            message = f"[{name}] 전량 매도되어 삭제되었습니다."
         else:
             supabase.table("stock_portfolio").update({"quantity": new_qty}).eq("id", existing_stock["id"]).execute()
-            message = f"{name} 부분 매도 완료."
+            message = f"[{name}] 부분 매도 완료."
     else:
         if quantity <= 0 and existing_stock:
             supabase.table("stock_portfolio").delete().eq("id", existing_stock["id"]).execute()
-            return jsonify({"status": "success", "message": "종목이 삭제되었습니다."})
+            return jsonify({"status": "success", "message": "종목이 전량 삭제되었습니다."})
         
         if existing_stock:
             supabase.table("stock_portfolio").update({"name": name, "quantity": quantity, "avg_price": avg_price}).eq("id", existing_stock["id"]).execute()
-            message = "정보가 수정되었습니다."
+            message = f"[{name}] 정보가 강제 수정되었습니다."
         else:
             supabase.table("stock_portfolio").insert({"market": market, "symbol": symbol, "name": name, "quantity": quantity, "avg_price": avg_price}).execute()
-            message = "새 종목이 등록되었습니다."
+            message = f"[{name}] 새 종목이 성공적으로 등록되었습니다."
 
     return jsonify({"status": "success", "message": message})
