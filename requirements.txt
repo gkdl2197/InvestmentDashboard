@@ -15,9 +15,8 @@ tzdata==2026.2
 tzlocal==5.4.3
 urllib3==2.7.0
 Werkzeug==3.1.8
-Flask-SQLAlchemy
-SQLAlchemy
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.31
 Flask-CORS==4.0.0
-supabase
-beautifulsoup4
-# vercel rebuild
+supabase==2.5.1
+beautifulsoup4==4.12.3
