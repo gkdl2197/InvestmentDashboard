@@ -256,7 +256,7 @@
             });
         }
 
-        // 💡 [개편] 신규/추가/부분 매매 전용 통합 파이프라인
+        // 💡 [교정] 신규/추가/부분 매매 전용 통합 파이프라인 (주소 꼬임 방지 및 에러 디버깅 보강)
         function submitTrading(actionType) {
             const market = document.getElementById("input-market").value;
             const nameInput = document.getElementById("input-name").value;
@@ -269,19 +269,26 @@
 
             const payload = {
                 action: actionType, 
-                market: market, // 💡 선택박스 매칭 데이터를 그대로 주입하여 undefined 원천 제거
+                market: market, 
                 name: name,
                 symbol: selectedSymbol,
                 quantity: parseFloat(quantity || 0),
                 avg_price: parseFloat(price || 0)
             };
 
+            // 💡 절대경로 /api/portfolio/save 로 명확하게 타격
             fetch("/api/portfolio/save", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    // 404, 500 등 HTTP 에러 발생 시 에러 코드를 포함하여 던짐
+                    throw new Error(`HTTP 상태 에러: ${res.status}`);
+                }
+                return res.json();
+            })
             .then(resData => {
                 if (resData.status === "success") {
                     alert(resData.message);
@@ -294,7 +301,34 @@
                 } else {
                     alert("매매 실패: " + resData.message);
                 }
-            }).catch(() => alert("서버 통신 실패"));
+            })
+            .catch(err => {
+                // 💡 "서버통신실패" 퉁치지 않고 진짜 원인을 alert로 출력
+                alert(`통신 실패 원인: ${err.message}\n(주소가 틀렸거나 백엔드 내부 로직에서 크래시가 났을 수 있습니다.)`);
+                console.error("상세 에러 로그:", err);
+            });
+        }
+
+        // 리스트 내부에서 원클릭 전량 처분 기능 주소 교정
+        function quickSellAll(id, symbol, name, market) {
+            if (!confirm(`[${name}] 종목을 시장가 전량 매도 및 실현손익 확정하시겠습니까?`)) return;
+            
+            fetch("/api/portfolio/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "sell_all", id: id, symbol: symbol, name: name, market: market })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP 상태 에러: ${res.status}`);
+                return res.json();
+            })
+            .then(resData => {
+                alert(resData.message);
+                loadDashboardData();
+            })
+            .catch(err => {
+                alert(`서버 통신 실패: ${err.message}`);
+            });
         }
 
         // 리스트 내부에서 원클릭 전량 처분 기능
