@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investment Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #121214; color: #f1f1f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+        .card { background-color: #1e1e22; border: 1px solid #29292e; }
+        
+        .table { color: #f1f1f5 !important; vertical-align: middle; background-color: #1e1e22 !important; }
+        .table th { background-color: #151518 !important; color: #ffffff !important; font-weight: 700 !important; border-bottom: 2px solid #3a3a40 !important; font-size: 0.95rem; padding: 14px 10px; }
+        .table td { background-color: #1e1e22 !important; border-bottom: 1px solid #29292e !important; padding: 16px 10px; font-size: 0.95rem; }
+        .table-hover tbody tr:hover td { background-color: #252529 !important; }
+        
+        .data-label-top { font-size: 0.85rem; color: #a4a4af; display: block; margin-bottom: 4px; font-weight: 500; }
+        .data-label-bottom { font-size: 1.05rem; color: #ffffff; font-weight: 700; display: block; }
+        .small-suffix { font-size: 0.85rem; color: #a4a4af; font-weight: 500; }
+        
+        .up-trend { color: #ff5252 !important; font-weight: 700; } 
+        .down-trend { color: #478eff !important; font-weight: 700; }
+        .summary-title { color: #a4a4af !important; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+        .summary-value { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.5px; }
+        .chart-container { position: relative; height: 220px; width: 100%; }
+        
+        .form-label-custom { color: #ffffff !important; font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; display: block; }
+        .form-control, .form-select { background-color: #252529; border: 1px solid #44444a; color: #ffffff !important; padding: 11px; font-weight: 600; font-size: 0.95rem; }
+        .form-control:focus, .form-select:focus { background-color: #2a2a30; color: #ffffff !important; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
+        .autocomplete-wrapper { position: relative; }
+        
+        .search-results-box { position: absolute; top: 100%; left: 0; right: 0; background-color: #252529; border: 1px solid #44444a; z-index: 999; max-height: 220px; overflow-y: auto; border-radius: 6px; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.6); margin-top: 4px; }
+        .search-item { padding: 12px 16px; cursor: pointer; color: #ffffff; border-bottom: 1px solid #323238; font-size: 0.95rem; }
+        .search-item:hover { background-color: #3b82f6; color: #ffffff; }
+
+        .progress { background-color: #2d2d35; height: 10px; border-radius: 6px; margin-top: 6px; border: 1px solid #3a3a42; }
+        .weight-number { font-size: 1.1rem; font-weight: 800; }
+        
+        /* 작업 구분 라디오 버튼 스타일 */
+        .btn-check:checked + .btn-outline-primary { background-color: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+        .btn-outline-primary { color: #a4a4af; border-color: #44444a; font-weight: 600; }
+        .btn-outline-primary:hover { background-color: #2a2a30; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="container py-4">
+    <header class="pb-3 mb-4 border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <h1 class="fs-4 fw-bold text-white">📈실시간 자산 관리 플랫폼 (v1.8 PRO)</h1>
+        <span class="badge bg-success px-3 py-2 fs-7" id="status-badge">동기화 중</span>
+    </header>
+
+    <div class="row row-cols-1 row-cols-md-4 g-3 mb-4">
+        <div class="col">
+            <div class="card p-3 shadow-sm text-center">
+                <div class="summary-title">총 평가 자산</div>
+                <div class="summary-value text-white" id="summary-total-eval">₩0</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card p-3 shadow-sm text-center">
+                <div class="summary-title">총 누적 손익</div>
+                <div class="summary-value" id="summary-total-profit">₩0 (0%)</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card p-3 shadow-sm text-center">
+                <div class="summary-title">오늘 하루 손익</div>
+                <div class="summary-value" id="summary-today-profit">₩0</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card p-3 shadow-sm text-center">
+                <div class="summary-title">실시간 환율</div>
+                <div class="summary-value text-warning" id="summary-exchange-rate">0.00원</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4 mb-4 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="fw-bold text-white fs-5">📥 실시간 거래 내역 및 자산 통제</div>
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="trade-action" id="act-buy" value="buy" checked>
+                <label class="btn btn-outline-primary px-3" for="act-buy">➕ 추가 매수</label>
+                
+                <input type="radio" class="btn-check" name="trade-action" id="act-sell" value="sell">
+                <label class="btn btn-outline-primary px-3" for="act-sell">➖ 부분 매도</label>
+                
+                <input type="radio" class="btn-check" name="trade-action" id="act-update" value="update">
+                <label class="btn btn-outline-primary px-3" for="act-update">⚙️ 직접 수정</label>
+            </div>
+        </div>
+        
+        <form id="stock-form" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label-custom">구분</label>
+                <select class="form-select" id="form-market" required>
+                    <option value="KR">🇰🇷 한국 주식</option>
+                    <option value="US">🇺🇸 미국 주식</option>
+                </select>
+            </div>
+            <div class="col-md-4 autocomplete-wrapper">
+                <label class="form-label-custom">종목명</label>
+                <input type="text" class="form-control" id="form-name" placeholder="종목명 입력" autocomplete="off" required>
+                <div class="search-results-box" id="search-box"></div>
+                <input type="hidden" id="form-symbol">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-custom" id="price-label">매수 거래단가 (원)</label>
+                <input type="number" step="any" class="form-control" id="form-avg-price" placeholder="금액 입력" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label-custom" id="qty-label">매수 수량</label>
+                <input type="number" step="any" class="form-control" id="form-quantity" placeholder="수량 입력" required>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100 fw-bold py-2 fs-6" id="submit-btn">포트폴리오 반영</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card p-3 shadow-sm">
+                <div class="fw-bold text-white mb-2">📊 자산 포트폴리오 비중</div>
+                <div class="chart-container d-flex justify-content-center">
+                    <canvas id="portfolioChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header fw-bold text-info fs-5 py-3">🇺🇸 미국 주식 (US Portfolio)</div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table m-0 table-hover">
+                <thead>
+                    <tr>
+                        <th>종목명 (티커)</th><th>보유량</th><th>평단가 / 현재가</th><th>현재 등락</th><th>총 매수 / 평가액</th><th>누적 평가손익</th><th style="width: 15%;">비중</th><th style="width: 7%;" class="text-center">관리</th>
+                    </tr>
+                </thead>
+                <tbody id="us-stock-table">
+                    <tr><td colspan="8" class="text-center text-muted py-4">데이터 로드 중...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header fw-bold text-warning fs-5 py-3">🇰🇷 한국 주식 (KR Portfolio)</div>
+        <div class="card-body p-0 table-responsive">
+            <table class="table m-0 table-hover">
+                <thead>
+                    <tr>
+                        <th>종목명 (코드)</th><th>보유량</th><th>평단가 / 현재가</th><th>현재 등락</th><th>총 매수 / 평가액</th><th>누적 평가손익</th><th style="width: 15%;">비중</th><th style="width: 7%;" class="text-center">관리</th>
+                    </tr>
+                </thead>
+                <tbody id="kr-stock-table">
+                    <tr><td colspan="8" class="text-center text-muted py-4">데이터 로드 중...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let myChart = null;
+
+    function AuroraChart(labels, values) {
+        const ctx = document.getElementById('portfolioChart').getContext('2d');
+        if (myChart) {
+            myChart.data.labels = labels;
+            myChart.data.datasets[0].data = values;
+            myChart.update('none');
+        } else {
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#4bc0c0', '#10b981', '#f59e0b'],
+                        borderWidth: 1,
+                        borderColor: '#1e1e22'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: '#ffffff', font: { size: 12, weight: 'bold' } } } }
+                }
+            });
+        }
+    }
+
+    async function updateDashboard() {
+        try {
+            const response = await fetch('/api/portfolio');
+            const data = await response.json();
+            
+            document.getElementById('summary-total-eval').innerText = '₩' + data.total_evaluation.toLocaleString();
+            document.getElementById('summary-exchange-rate').innerText = data.exchange_rate.toLocaleString() + '원';
+            
+            const profitEl = document.getElementById('summary-total-profit');
+            const profitTrend = data.total_profit >= 0 ? 'up-trend' : 'down-trend';
+            profitEl.className = `summary-value ${profitTrend}`;
+            profitEl.innerText = `₩${data.total_profit.toLocaleString()} (${data.total_profit_percent}%)`;
+
+            const todayProfitEl = document.getElementById('summary-today-profit');
+            const todayTrend = data.total_today_profit >= 0 ? 'up-trend' : 'down-trend';
+            const todaySign = data.total_today_profit >= 0 ? '+' : '';
+            todayProfitEl.className = `summary-value ${todayTrend}`;
+            todayProfitEl.innerText = `${todaySign}₩${data.total_today_profit.toLocaleString()}`;
+
+            const chartLabels = [];
+            const chartValues = [];
+
+            // 1. 미국 주식 바인딩 (수정: 종목명이 위, 티커가 아래로 오도록 조정)
+            const usTable = document.getElementById('us-stock-table');
+            usTable.innerHTML = '';
+            data.portfolio.US.forEach(stock => {
+                const dayTrend = stock.chg_percent >= 0 ? 'up-trend' : 'down-trend';
+                const daySign = stock.chg_percent >= 0 ? '▲' : '▼';
+                const totalTrend = stock.total_profit_krw >= 0 ? 'up-trend' : 'down-trend';
+                const totalSign = stock.total_profit_krw >= 0 ? '+' : '';
+
+                usTable.innerHTML += `
+                    <tr>
+                        <td class="fw-bold text-white fs-5">${stock.name}<br><span class="small-suffix">${stock.symbol}</span></td>
+                        <td class="fw-bold text-white">${stock.quantity} <span class="small-suffix">주</span></td>
+                        <td>
+                            <span class="data-label-top">평단 $${stock.avg_price.toFixed(2)}</span>
+                            <span class="data-label-bottom">$${stock.current_price.toFixed(2)}</span>
+                        </td>
+                        <td class="${dayTrend} fs-5">${daySign} ${Math.abs(stock.chg_percent).toFixed(2)}%</td>
+                        <td>
+                            <span class="data-label-top">매수 ₩${stock.purchase_amount_krw.toLocaleString()}</span>
+                            <span class="data-label-bottom">₩${stock.eval_amount_krw.toLocaleString()}</span>
+                        </td>
+                        <td class="${totalTrend} fs-5">${totalSign}₩${stock.total_profit_krw.toLocaleString()}<br><span class="fs-6">(${stock.total_profit_percent}%)</span></td>
+                        <td>
+                            <div class="weight-number text-info">${stock.weight_percent}%</div>
+                            <div class="progress"><div class="progress-bar bg-info" style="width: ${stock.weight_percent}%"></div></div>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-danger fw-bold px-2" onclick="deleteStock(${stock.id}, '${stock.name}')">지우기</button>
+                        </td>
+                    </tr>
+                `;
+                chartLabels.push(stock.name);
+                chartValues.push(stock.eval_amount_krw);
+            });
+
+            // 2. 한국 주식 바인딩
+            const krTable = document.getElementById('kr-stock-table');
+            krTable.innerHTML = '';
+            data.portfolio.KR.forEach(stock => {
+                const dayTrend = stock.chg_percent >= 0 ? 'up-trend' : 'down-trend';
+                const daySign = stock.chg_percent >= 0 ? '▲' : '▼';
+                const totalTrend = stock.total_profit_krw >= 0 ? 'up-trend' : 'down-trend';
+                const totalSign = stock.total_profit_krw >= 0 ? '+' : '';
+
+                krTable.innerHTML += `
+                    <tr>
+                        <td class="fw-bold text-white fs-5">${stock.name}<br><span class="small-suffix">${stock.symbol}</span></td>
+                        <td class="fw-bold text-white">${stock.quantity} <span class="small-suffix">주</span></td>
+                        <td>
+                            <span class="data-label-top">평단 ${stock.avg_price.toLocaleString()}원</span>
+                            <span class="data-label-bottom">${stock.current_price.toLocaleString()}원</span>
+                        </td>
+                        <td class="${dayTrend} fs-5">${daySign} ${Math.abs(stock.chg_percent).toFixed(2)}%</td>
+                        <td>
+                            <span class="data-label-top">매수 ₩${stock.purchase_amount_krw.toLocaleString()}</span>
+                            <span class="data-label-bottom">₩${stock.eval_amount_krw.toLocaleString()}</span>
+                        </td>
+                        <td class="${totalTrend} fs-5">${totalSign}₩${stock.total_profit_krw.toLocaleString()}<br><span class="fs-6">(${stock.total_profit_percent}%)</span></td>
+                        <td>
+                            <div class="weight-number text-warning">${stock.weight_percent}%</div>
+                            <div class="progress"><div class="progress-bar bg-warning" style="width: ${stock.weight_percent}%"></div></div>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-danger fw-bold px-2" onclick="deleteStock(${stock.id}, '${stock.name}')">지우기</button>
+                        </td>
+                    </tr>
+                `;
+                chartLabels.push(stock.name);
+                chartValues.push(stock.eval_amount_krw);
+            });
+            
+            AuroraChart(chartLabels, chartValues);
+            document.getElementById('status-badge').className = "badge bg-success px-3 py-2 fs-7";
+            document.getElementById('status-badge').innerText = "실시간 동기화 중 (" + new Date().toLocaleTimeString() + ")";
+
+        } catch (error) {
+            console.error("데이터 동기화 실패:", error);
+        }
+    }
+
+    // ⚙️ 원클릭 데이터 제거 기믹
+    async function deleteStock(id, name) {
+        if(!confirm(`[확인]정말로 ${name} 종목을 포트폴리오에서 삭제하시겠습니까?`)) return;
+        try {
+            const response = await fetch('/api/portfolio/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: "delete", id: id })
+            });
+            const result = await response.json();
+            alert(result.message);
+            updateDashboard();
+        } catch (err) { alert("삭제 실패"); }
+    }
+
+    // 인터페이스 동적 텍스트 전환 효과
+    const marketSelect = document.getElementById('form-market');
+    const priceLabel = document.getElementById('price-label');
+    const qtyLabel = document.getElementById('qty-label');
+    const actionRadios = document.querySelectorAll('input[name="trade-action"]');
+
+    function syncLabels() {
+        let currentAction = document.querySelector('input[name="trade-action"]:checked').value;
+        let currency = marketSelect.value === "KR" ? "원" : "달러";
+        
+        if(currentAction === "buy") {
+            priceLabel.innerText = `매수 거래단가 (${currency})`;
+            qtyLabel.innerText = "매수 수량";
+        } else if(currentAction === "sell") {
+            priceLabel.innerText = `매도 분할단가 (${currency})`;
+            qtyLabel.innerText = "매도 수량";
+        } else {
+            priceLabel.innerText = `평균 매수단가 (${currency})`;
+            qtyLabel.innerText = "총 보유 수량";
+        }
+    }
+
+    marketSelect.addEventListener('change', syncLabels);
+    actionRadios.forEach(r => r.addEventListener('change', syncLabels));
+
+    // 종목 자동완성 서칭 엔진
+    const nameInput = document.getElementById('form-name');
+    const searchBox = document.getElementById('search-box');
+    const symbolInput = document.getElementById('form-symbol');
+
+    nameInput.addEventListener('input', async () => {
+        const query = nameInput.value.trim();
+        const market = marketSelect.value;
+        if (query.length < 2) { searchBox.style.display = 'none'; return; }
+        try {
+            const response = await fetch(`/api/stock/search?market=${market}&query=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            if (data && data.length > 0) {
+                searchBox.innerHTML = '';
+                data.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'search-item';
+                    div.innerText = `${item.name} (${item.symbol})`;
+                    div.addEventListener('click', () => {
+                        nameInput.value = item.name;
+                        symbolInput.value = item.symbol; 
+                        searchBox.style.display = 'none';
+                    });
+                    searchBox.appendChild(div);
+                });
+                searchBox.style.display = 'block';
+            } else { searchBox.style.display = 'none'; }
+        } catch (err) {}
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.autocomplete-wrapper')) { searchBox.style.display = 'none'; }
+    });
+
+    document.getElementById('stock-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const currentAction = document.querySelector('input[name="trade-action"]:checked').value;
+        
+        const payload = {
+            action: currentAction,
+            market: marketSelect.value,
+            symbol: symbolInput.value, 
+            name: nameInput.value,
+            quantity: document.getElementById('form-quantity').value,
+            avg_price: document.getElementById('form-avg-price').value
+        };
+
+        try {
+            const response = await fetch('/api/portfolio/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            alert(result.message);
+            if(result.status === "success") {
+                document.getElementById('stock-form').reset();
+                symbolInput.value = '';
+                updateDashboard();
+            }
+        } catch (error) { alert("서버 통신 실패"); }
+    });
+
+    updateDashboard();
+    setInterval(updateDashboard, 5000);
+</script>
+</body>
+</html>

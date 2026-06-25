@@ -1,0 +1,10 @@
+{
+  "US": [
+    {"symbol": "NVDA", "quantity": 15, "avg_price": 120.5},
+    {"symbol": "PLTR", "quantity": 80, "avg_price": 35.2}
+  ],
+  "KR": [
+    {"symbol": "005930", "name": "삼성전자", "quantity": 20, "avg_price": 65000},
+    {"symbol": "000660", "name": "SK하이닉스", "quantity": 10, "avg_price": 180000}
+  ]
+}
