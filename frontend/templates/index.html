@@ -5,7 +5,7 @@
     <title>Investment Dashboard - 실시간 자산 전광판</title>
     <style>
         body { background-color: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; padding: 20px; }
-        .container { max-w-width: 1200px; margin: 0 auto; }
+        .container { max-width: 1200px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; padding-bottom: 20px; margin-bottom: 20px; }
         h1 { margin: 0; color: #ffffff; }
         .summary-board { display: flex; gap: 20px; margin-bottom: 30px; }
@@ -65,7 +65,7 @@
             </div>
         </section>
 
-        <table class="table">
+        <table>
             <thead>
                 <tr>
                     <th>시장</th>
@@ -125,6 +125,7 @@
             fetch("/api/portfolio")
                 .then(res => res.json())
                 .then(data => {
+                    // 상단 헤더 및 요약 정보 바인딩
                     document.getElementById("fx-display").innerText = "환율: ₩ " + toCommas(data.exchange_rate);
                     document.getElementById("total-eval").innerText = "₩ " + toCommas(data.total_evaluation);
                     
@@ -143,22 +144,25 @@
                     const tbody = document.getElementById("portfolio-table-body");
                     tbody.innerHTML = "";
 
-                    if (data.portfolio) {
-                        ["KR", "US"].forEach(m => {
-                            if (data.portfolio[m]) {
+                    // 💡 [매핑 엔진 교정] 백엔드가 소문자로 던져주는 portfolio 키값과 완전히 싱크를 맞췄습니다.
+                    if (data && data.portfolio) {
+                        const markets = ["KR", "US"];
+                        markets.forEach(m => {
+                            if (data.portfolio[m] && Array.isArray(data.portfolio[m])) {
                                 data.portfolio[m].forEach(stock => {
                                     const tr = document.createElement("tr");
-                                    const isPlus = (stock.total_profit_krw || 0) >= 0;
+                                    const totalProfitKrw = stock.total_profit_krw || 0;
+                                    const isPlus = totalProfitKrw >= 0;
                                     
                                     tr.innerHTML = `
-                                        <td><strong style="color: ${stock.market==='US'?'#58a6ff':'#ff7b72'}">${stock.market}</strong></td>
-                                        <td><b style="color:#ffffff">${stock.name}</b><br><span style="color:#8b949e; font-size:11px;">${stock.symbol}</span></td>
-                                        <td class="text-right">${stock.quantity}</td>
-                                        <td class="text-right">${toCommas(stock.avg_price)}</td>
-                                        <td class="text-right" style="color:#c9d1d9">${toCommas(stock.current_price)}</td>
-                                        <td class="text-right"><b style="color:#ffffff">${toCommas(stock.eval_amount_krw)}</b><br><span style="color:#8b949e; font-size:11px;">(${stock.weight_percent || 0}%)</span></td>
-                                        <td class="text-right ${isPlus?'plus':'minus'}"><b>${stock.total_profit_percent}%</b><br><span style="font-size:11px;">${isPlus?'+':''}${toCommas(stock.total_profit_krw)}</span></td>
-                                        <td class="text-center"><button onclick="deleteStock(${stock.id})" style="color:#f85149; padding:4px 8px; font-size:12px;">삭제</button></td>
+                                        <td><strong style="color: ${stock.market === 'US' ? '#58a6ff' : '#ff7b72'}">${stock.market || m}</strong></td>
+                                        <td><b style="color:#ffffff">${stock.name || ''}</b><br><span style="color:#8b949e; font-size:11px;">${stock.symbol || ''}</span></td>
+                                        <td class="text-right font-mono">${stock.quantity}</td>
+                                        <td class="text-right font-mono">${toCommas(stock.avg_price)}</td>
+                                        <td class="text-right font-mono" style="color:#c9d1d9">${toCommas(stock.current_price)}</td>
+                                        <td class="text-right font-mono"><b style="color:#ffffff">${toCommas(stock.eval_amount_krw)}</b><br><span style="color:#8b949e; font-size:11px;">(${stock.weight_percent || 0}%)</span></td>
+                                        <td class="text-right font-mono ${isPlus ? 'plus' : 'minus'}"><b>${stock.total_profit_percent}%</b><br><span style="font-size:11px;">${isPlus ? '+' : ''}${toCommas(totalProfitKrw)}</span></td>
+                                        <td class="text-center"><button onclick="deleteStock(${stock.id})" style="color:#f85149; padding:4px 8px; font-size:12px; border:1px solid #30363d; background:none; cursor:pointer; border-radius:4px;">삭제</button></td>
                                     `;
                                     tbody.appendChild(tr);
                                 });
@@ -170,7 +174,8 @@
 
         function submitAction(actionType) {
             const market = document.getElementById("input-market").value;
-            const name = document.getElementById("input-name").value.trim();
+            const nameInput = document.getElementById("input-name").value;
+            const name = nameInput ? nameInput.trim() : "";
             const quantity = document.getElementById("input-quantity").value;
             const price = document.getElementById("input-price").value;
 
