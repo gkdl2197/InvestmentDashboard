@@ -26,7 +26,7 @@ def get_portfolio():
         print(f"❌ [API] Supabase 데이터 로드 실패: {e}")
         return jsonify({"status": "error", "message": f"클라우드 데이터 로드 실패: {e}"}), 500
 
-    exchange_rate = ExchangeRateService.get_rate()
+    exchange_rate = ExchangeRateService().get_usd_krw()
     portfolio = {"US": [], "KR": []}
     total_purchase = 0       
     total_evaluation = 0     
