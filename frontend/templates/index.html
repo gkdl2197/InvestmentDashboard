@@ -10,6 +10,7 @@
         header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #30363d; padding-bottom: 25px; margin-bottom: 30px; }
         
         .dashboard-top { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 35px; }
+        /* 💡 4열에서 지시사항에 맞춰 2열 카드로 격자 축소 정돈 */
         .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
         
         .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); transition: border 0.3s; }
@@ -68,14 +69,6 @@
             <div class="card">
                 <p>총 평가 자산</p>
                 <h2 id="total-eval">₩ 0</h2>
-            </div>
-            <div class="card">
-                <p>미실현 손익</p>
-                <h2 id="total-profit">₩ 0</h2>
-            </div>
-            <div class="card">
-                <p>총 수익률</p>
-                <h2 id="total-profit-percent">0.0%</h2>
             </div>
             <div class="card">
                 <p>오늘 확정 실현손익</p>
@@ -155,15 +148,8 @@
         fetch("/api/portfolio").then(res => res.json()).then(data => {
             document.getElementById("fx-display").innerText = `환율: ₩ ${toCommas(data.exchange_rate)}`;
             document.getElementById("total-eval").innerText = `₩ ${toCommas(data.total_evaluation)}`;
-            
-            const pEl = document.getElementById("total-profit");
-            pEl.innerText = `₩ ${toCommas(data.total_profit)}`;
-            pEl.className = data.total_profit >= 0 ? "plus" : "minus";
 
-            document.getElementById("total-profit-percent").innerText = `${data.total_profit_percent}%`;
-            document.getElementById("total-profit-percent").className = data.total_profit_percent >= 0 ? "plus" : "minus";
-
-            // 💡 [융합] 실현손익 및 동적 손익률 지표 카드 결합 렌더링
+            // 💡 [매도 정산 가드] 오늘 확정 실현손익 동적 컴포넌트 제어
             const rEl = document.getElementById("realized-profit");
             const oldTag = document.getElementById("realized-rate-tag");
             if (oldTag) oldTag.remove();
