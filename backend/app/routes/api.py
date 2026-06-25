@@ -19,7 +19,6 @@ def get_portfolio():
     if not supabase:
         return jsonify({"status": "error", "message": "Supabase 설정이 누락되었습니다."}), 500
 
-    # 1. 클라우드 DB에서 전체 주식 목록 읽기
     try:
         res = supabase.table("stock_portfolio").select("*").execute()
         db_stocks = res.data if res.data else []
@@ -34,7 +33,6 @@ def get_portfolio():
     total_today_profit = 0   
 
     for stock in db_stocks:
-        # 💡 [안전장치] 수량과 평단가가 어떤 형태로 들어와도 안전하게 수치(float)로 변환하도록 방어 코딩
         try:
             qty = float(stock.get("quantity", 0) or 0)
             avg_p = float(stock.get("avg_price", 0) or 0)
@@ -58,6 +56,8 @@ def get_portfolio():
         }
         
         market = stock.get("market", "KR")
+        today_profit_krw = 0
+        
         if market == "US":
             realtime = UsStockService.get_realtime_price(stock_data["symbol"])
             if realtime:
@@ -223,65 +223,3 @@ def save_stock():
             message = f"{name} 종목이 새롭게 등록되었습니다."
 
     return jsonify({"status": "success", "message": message})
-
-@api_blueprint.route("/ai/report", methods=["GET"])
-def get_ai_report():
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key:
-        return jsonify({"status": "error", "message": ".env 파일에 OPENAI_API_KEY를 등록해 주세요."}), 400
-
-    try:
-        res = supabase.table("stock_portfolio").select("*").execute()
-        db_stocks = res.data if res.data else []
-    except Exception:
-        return jsonify({"status": "error", "message": "DB 통신 실패"}), 500
-
-    if not db_stocks:
-        return jsonify({"report": "포트폴리오에 자산이 비어있어 AI가 분석할 수 없습니다. 종목을 먼저 추가해 주세요."})
-
-    portfolio_summary = []
-    stock_names = []
-    for s in db_stocks:
-        portfolio_summary.append(f"- {s.get('name')} ({s.get('market')}): 보유량 {s.get('quantity')}주, 평단가 {s.get('avg_price')}")
-        stock_names.append(s.get('name'))
-
-    news_context = []
-    for name in stock_names[:3]:
-        news_context.append(f"[{name} 관련 최신 동향] 시장 내 거래량 변동성 및 투자 심리 변화 관측 중.")
-
-    prompt = f"""
-    당신은 월스트리트 출신의 전문 수석 AI 금융 애널리스트입니다. 
-    다음은 사용자의 실시간 주식 포트폴리오 자산 보유 현황입니다:
-    {chr(10).join(portfolio_summary)}
-
-    참고 동향:
-    {chr(10).join(news_context)}
-
-    위 데이터를 기반으로 전문적이고 가독성 높은 한국어 '투자 위험도 분석 리포트'를 작성해 주세요.
-    내용에는 다음 항목이 반드시 명확히 포함되어야 합니다:
-    1. 계좌의 핵심 리스크 진단 (환율 변동성 및 자산 편중도 분석)
-    2. 보유 종목 중 가장 주의 깊게 모니터링해야 할 타겟 종목 및 그 이유
-    3. 향후 시장 대응을 위한 현실적인 포트폴리오 헤지(Hedge) 액션 플랜
-
-    친절하면서도 단호한 전문가의 어조로 작성하고, HTML 줄바꿈 태그(<br>)를 적절히 활용하여 응답해 주세요.
-    """
-
-    try:
-        response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {openai_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7
-            },
-            timeout=15
-        ).json()
-        
-        ai_message = response['choices'][0]['message']['content']
-        return jsonify({"status": "success", "report": ai_message})
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"AI 생성 실패: {e}"}), 500
