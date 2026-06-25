@@ -20,3 +20,4 @@ SQLAlchemy
 Flask-CORS==4.0.0
 supabase
 beautifulsoup4
+# vercel rebuild
