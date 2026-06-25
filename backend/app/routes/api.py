@@ -19,12 +19,25 @@ def get_portfolio():
     if not supabase:
         return jsonify({"status": "error", "message": "Supabase 설정이 누락되었습니다."}), 500
 
+    # 💡 [핵심 방어막] Supabase 라이브러리 버전 문제로 크래시가 나더라도 
+    # 500 HTML 대신 빈 JSON 데이터 구조를 반환하여 프론트엔드가 죽는 것을 결사 방어합니다.
+    db_stocks = []
     try:
         res = supabase.table("stock_portfolio").select("*").execute()
         db_stocks = res.data if res.data else []
     except Exception as e:
         print(f"❌ [API] Supabase 데이터 로드 실패: {e}")
-        return jsonify({"status": "error", "message": f"클라우드 데이터 로드 실패: {e}"}), 500
+        # ⚠️ 크래시 유발을 막고 안전하게 에러 메시지를 JSON 포맷으로 브라우저에 전달합니다.
+        return jsonify({
+            "total_evaluation": 0,
+            "total_profit": 0,
+            "total_profit_percent": 0.0,
+            "total_today_profit": 0,
+            "exchange_rate": 1350.0,
+            "portfolio": {"US": [], "KR": []},
+            "status": "warning",
+            "message": f"클라우드 DB 버그 방어 완료: {e}"
+        })
 
     exchange_rate = ExchangeRateService().get_usd_krw()
     portfolio = {"US": [], "KR": []}
