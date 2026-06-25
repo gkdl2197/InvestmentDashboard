@@ -138,9 +138,11 @@ def search_stock():
         url = f"https://ac.stock.naver.com/ac?q={query}&target=stock,index,fund,futures,option"
         try:
             res = requests.get(url, headers=headers, timeout=5).json()
+            # 네이버 자동완성 API 규격 매핑 안전장치
             items = res.get("items", [])
-            for item in items[:8]:
-                results.append({"symbol": item.get("code", ""), "name": item.get("name", "")})
+            if items and isinstance(items, list) and len(items) > 0:
+                for item in items[0]: # 네이버 특유의 이중 배열 구조 방어
+                    results.append({"symbol": item.get("code", ""), "name": item.get("name", "")})
         except Exception as e:
             print(f"국내 종목 자동검색 실패: {e}")
     elif market == "US":
@@ -150,7 +152,7 @@ def search_stock():
             res = requests.get(url, timeout=5).json()
             if "result" in res:
                 for item in res["result"][:5]:
-                    results.append({"symbol": item["symbol"], "name": item["description"]})
+                    results.append({"symbol": item.get("symbol", ""), "name": item.get("description", "")})
         except Exception as e:
             print(f"미국 종목 자동검색 실패: {e}")
     return jsonify(results)
@@ -163,8 +165,8 @@ def save_stock():
     market = data.get("market")
     symbol = data.get("symbol", "").strip().upper()
     name = data.get("name", "").strip()
-    quantity = float(data.get("quantity", 0))
-    avg_price = float(data.get("avg_price", 0))
+    quantity = float(data.get("quantity", 0) if data.get("quantity") else 0)
+    avg_price = float(data.get("avg_price", 0) if data.get("avg_price") else 0)
 
     if action == "delete" and stock_id:
         try:
@@ -176,14 +178,15 @@ def save_stock():
     if not market or not name:
         return jsonify({"status": "error", "message": "구분과 종목명을 정확히 입력해 주세요."}), 400
 
+    # 💡 [핵심 교정부] 사용자가 이름을 입력했을 때 코드를 자동으로 사냥해오는 네이버/Finnhub 파싱엔진 규격화
     if not symbol:
         if market == "KR":
             url = f"https://ac.stock.naver.com/ac?q={name}&target=stock"
             try:
                 res = requests.get(url, timeout=3).json()
-                if "items" in res and res["items"]:
-                    symbol = res["items"][0].get("code", "")
-                    name = res["items"][0].get("name", "")
+                if "items" in res and res["items"] and res["items"][0]:
+                    symbol = res["items"][0][0].get("code", "")
+                    name = res["items"][0][0].get("name", "")
             except Exception: pass
         elif market == "US":
             api_key = Config.FINNHUB_API_KEY
@@ -196,7 +199,8 @@ def save_stock():
             except Exception: pass
 
     if not symbol:
-        return jsonify({"status": "error", "message": f"'{name}'의 코드를 자동 매핑하지 못했습니다."}), 404
+        # 코드를 도저히 못 찾으면 입력한 이름을 코드 대용으로 쓸 수 있게 방어막 가동
+        symbol = name.upper()
 
     check_exist = supabase.table("stock_portfolio").select("*").eq("symbol", symbol).execute()
     existing_stock = check_exist.data[0] if check_exist.data else None
