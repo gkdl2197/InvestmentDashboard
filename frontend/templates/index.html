@@ -135,7 +135,7 @@
 
     document.addEventListener("DOMContentLoaded", () => {
         loadDashboardData();
-        initAutocomplete();
+        initAutocomplete(); // 💡 자동완성 감시 엔진 시동
     });
 
     function toCommas(val) {
@@ -219,48 +219,56 @@
         box.innerHTML = svgContent;
     }
 
-    // 💡 [자동완성 바인딩 완전 복구]
+    // 💡 [완벽 보수] 타이핑 인식 및 마우스 클릭 드롭다운 매핑 코어 엔진
     function initAutocomplete() {
         const nameInput = document.getElementById("input-name");
         const box = document.getElementById("suggestions-box");
-        const mkt = document.getElementById("input-market");
+        const mktSelect = document.getElementById("input-market"); // ID 정밀 매칭 확인
 
         nameInput.addEventListener("input", () => {
             const queryVal = nameInput.value.trim();
-            if (queryVal.length < 2) { box.style.display = "none"; return; }
+            if (queryVal.length < 2) { box.innerHTML = ""; box.style.display = "none"; return; }
             
-            // 파라미터 규격(market, query) 매칭 확인 완료
-            fetch(`/api/stock/search?market=${mkt.value}&query=${encodeURIComponent(queryVal)}`)
-                .then(res => res.json()).then(items => {
+            // 명세된 백엔드 API 라우트 규격 완벽 조준
+            fetch(`/api/stock/search?market=${mktSelect.value}&query=${encodeURIComponent(queryVal)}`)
+                .then(res => res.json())
+                .then(items => {
                     box.innerHTML = "";
-                    if(items && items.length > 0) {
+                    if (items && items.length > 0) {
                         items.forEach(item => {
-                            const d = document.createElement("div"); d.className = "suggestion-item";
-                            d.innerHTML = `<b>${item.name}</b> <span style="color:#8b949e; font-size:12px;">${item.symbol}</span>`;
-                            d.onclick = (e) => {
-                                e.stopPropagation();
+                            const d = document.createElement("div"); 
+                            d.className = "suggestion-item";
+                            d.innerHTML = `<b>${item.name}</b> <span style="color:#58a6ff; font-size:12px; font-family:monospace; float:right;">${item.symbol}</span>`;
+                            
+                            // mousedown 이벤트를 사용하여 blur 이벤트보다 먼저 실행되도록 가드 처리
+                            d.addEventListener("mousedown", (e) => {
+                                e.preventDefault(); // 이벤트 전파 컷
                                 nameInput.value = item.name; 
-                                selectedSymbol = item.symbol; // 글로벌 변수 락인
+                                selectedSymbol = item.symbol; // 글로벌 데이터에 정식 종목코드 주입
+                                box.innerHTML = "";
                                 box.style.display = "none"; 
-                            };
+                            });
                             box.appendChild(d);
                         });
                         box.style.display = "block";
                     } else {
                         box.style.display = "none";
                     }
-                });
+                }).catch(err => console.error("자동완성 파이프라인 다운:", err));
         });
 
-        // 외부 클릭 시 창 닫히는 가드 추가
-        document.addEventListener("click", () => { box.style.display = "none"; });
+        // 인풋창 포커스 아웃(blur) 시 목록 숨김 가드 (mousedown 가드와 연동)
+        nameInput.addEventListener("blur", () => {
+            setTimeout(() => { box.style.display = "none"; }, 200);
+        });
     }
 
     function submitTrading(action) {
         const payload = {
-            action, market: document.getElementById("input-market").value,
+            action, 
+            market: document.getElementById("input-market").value,
             name: document.getElementById("input-name").value.trim(),
-            symbol: selectedSymbol,
+            symbol: selectedSymbol, // 💡 자동완성에서 잡은 코드가 그대로 주입됨
             quantity: parseFloat(document.getElementById("input-quantity").value || 0),
             avg_price: parseFloat(document.getElementById("input-price").value || 0)
         };
@@ -273,9 +281,7 @@
             body: JSON.stringify(payload) 
         })
         .then(res => {
-            if(!res.ok) {
-                return res.json().then(err => { throw new Error(err.message); });
-            }
+            if(!res.ok) return res.json().then(err => { throw new Error(err.message); });
             return res.json();
         })
         .then(d => { 
@@ -291,5 +297,3 @@
         });
     }
 </script>
-</body>
-</html>
