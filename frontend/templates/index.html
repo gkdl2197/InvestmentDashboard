@@ -24,96 +24,113 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             font-family: 'Urbanist', sans-serif;
-            padding: 30px;
+            padding: 25px;
         }
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
+            padding-bottom: 10px;
         }
         .header h1 {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: 700;
             color: var(--text-white);
-            letter-spacing: -0.5px;
         }
         .header h1 span { color: var(--lime-green); }
-        .fx-rate { font-family: 'JetBrains Mono', monospace; color: #8b949e; }
+        .fx-rate { font-family: 'JetBrains Mono', monospace; color: #8b949e; font-size: 14px; }
 
+        /* 💡 1번 요구사항: 카드 공란 축소 및 최적화 */
         .summary-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-bottom: 40px;
+            gap: 15px;
+            margin-bottom: 25px;
         }
         .card {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 24px;
+            border-radius: 10px;
+            padding: 14px 18px; /* 패딩 축소로 공란 제거 */
         }
-        .card-title { font-size: 14px; color: #8b949e; margin-bottom: 10px; font-weight: 500; }
-        .card-value { font-size: 28px; font-weight: 700; color: var(--text-white); }
+        .card-title { font-size: 13px; color: #8b949e; margin-bottom: 4px; font-weight: 500; }
+        .card-value { font-size: 24px; font-weight: 700; color: var(--text-white); }
+        .card-rate-tag { font-size: 13px; font-weight: bold; margin-top: 2px; display: block; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
 
         .dashboard-body {
             display: grid;
             grid-template-columns: 2fr 1fr;
-            gap: 30px;
+            gap: 25px;
         }
 
         .section-title {
-            font-size: 20px;
+            font-size: 18px;
             color: var(--text-white);
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
-        .section-title span { font-size: 13px; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+        .section-title span { font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: bold; }
         .badge-kr { background-color: rgba(255, 123, 114, 0.15); color: #ff7b72; }
         .badge-us { background-color: rgba(88, 166, 255, 0.15); color: #58a6ff; }
 
         .table-container {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 10px;
             overflow: hidden;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
         table { width: 100%; border-collapse: collapse; text-align: left; }
-        th { background-color: rgba(0,0,0,0.15); padding: 14px 16px; color: #8b949e; font-size: 13px; border-bottom: 1px solid var(--border-color); }
-        td { padding: 14px 16px; border-bottom: 1px solid rgba(48, 54, 61, 0.5); color: var(--text-white); font-size: 15px; }
+        th { background-color: rgba(0,0,0,0.15); padding: 10px 14px; color: #8b949e; font-size: 13px; border-bottom: 1px solid var(--border-color); }
+        td { padding: 11px 14px; border-bottom: 1px solid rgba(48, 54, 61, 0.4); color: var(--text-white); font-size: 14px; }
         .text-right { text-align: right; }
         .plus { color: var(--plus-color) !important; }
         .minus { color: var(--minus-color) !important; }
 
-        .panel-title { font-size: 18px; color: var(--text-white); margin-bottom: 20px; font-weight: 700; }
-        .form-group { margin-bottom: 15px; position: relative; }
-        label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 6px; }
+        /* 💡 2번 요구사항: 매수/매도 분리 스위치 스타일 */
+        .panel-title { font-size: 16px; color: var(--text-white); margin-bottom: 15px; font-weight: 700; }
+        .tx-toggle-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .tx-btn {
+            padding: 10px; border: 1px solid var(--border-color); background: #0d1117;
+            color: #8b949e; font-weight: bold; font-size: 14px; border-radius: 6px; cursor: pointer; text-align: center;
+        }
+        .tx-btn.active-buy { background: rgba(63, 185, 80, 0.15); color: var(--plus-color); border-color: var(--plus-color); }
+        .tx-btn.active-sell { background: rgba(248, 81, 73, 0.15); color: var(--minus-color); border-color: var(--minus-color); }
+
+        .form-group { margin-bottom: 12px; position: relative; }
+        label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px; }
         input, select {
             width: 100%; background-color: #0d1117; border: 1px solid var(--border-color);
-            border-radius: 6px; padding: 10px 12px; color: var(--text-white); font-size: 14px;
+            border-radius: 6px; padding: 8px 10px; color: var(--text-white); font-size: 13px;
         }
         input:focus, select:focus { border-color: var(--lime-green); outline: none; }
+        
         .btn-submit {
-            width: 100%; background-color: var(--text-white); color: #000; border: none;
-            border-radius: 6px; padding: 12px; font-weight: 700; cursor: pointer; margin-top: 10px;
+            width: 100%; color: #000; border: none;
+            border-radius: 6px; padding: 11px; font-weight: 700; cursor: pointer; margin-top: 5px; font-size: 14px;
         }
-        .btn-submit:hover { opacity: 0.9; }
+        .btn-buy-mode { background-color: var(--plus-color); color: white; }
+        .btn-sell-mode { background-color: var(--minus-color); color: white; }
 
         .autocomplete-box {
             position: absolute; top: 100%; left: 0; right: 0; background-color: #1f242c;
-            border: 1px solid var(--border-color); border-radius: 6px; z-index: 99; max-height: 200px;
-            overflow-y: auto; display: none; box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color); border-radius: 6px; z-index: 99; max-height: 180px;
+            overflow-y: auto; display: none;
         }
-        .autocomplete-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid rgba(48,54,61,0.3); }
+        .autocomplete-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid rgba(48,54,61,0.3); font-size: 13px; }
         .autocomplete-item:hover { background-color: rgba(222, 255, 154, 0.1); color: var(--lime-green); }
         
-        #portfolio-chart { width: 100%; height: 260px; margin-top: 15px; }
+        #portfolio-chart { width: 100%; height: 200px; }
     </style>
 </head>
 <body>
@@ -124,17 +141,18 @@
     </div>
 
     <div class="summary-container">
-        <div class="card" style="border-top: 4px solid var(--plus-color);">
+        <div class="card" style="border-top: 3px solid var(--plus-color);">
             <div class="card-title">원화 평가 자산 (KRW)</div>
             <div id="total-eval-krw" class="card-value font-mono">₩ 0</div>
+            <span id="rate-krw" class="card-rate-tag">0.00%</span>
         </div>
-        <div class="card" style="border-top: 4px solid #58a6ff;">
+        <div class="card" style="border-top: 3px solid #58a6ff;">
             <div class="card-title">달러 평가 자산 (USD)</div>
             <div id="total-eval-usd" class="card-value font-mono">$ 0.00</div>
-            <span id="total-eval-usd-converted" style="color:#8b949e; font-size:13px; display:block; margin-top:4px;">(₩ 0)</span>
+            <span id="rate-usd" class="card-rate-tag">0.00%</span>
+            <span id="total-eval-usd-converted" style="color:#8b949e; font-size:11px; display:block; margin-top:2px;">(₩ 0)</span>
         </div>
-        <div class="card" style="border-top: 4px solid var(--lime-green);">
-            <div class="card-title">포트폴리오 비중 현황</div>
+        <div class="card" style="border-top: 3px solid var(--lime-green); padding: 5px 12px;">
             <div id="portfolio-chart"></div>
         </div>
     </div>
@@ -179,10 +197,18 @@
         <div>
             <div class="card">
                 <div class="panel-title"><i class="fa-solid fa-pen-to-square"></i> 자산 업데이트</div>
+                
+                <div class="tx-toggle-container">
+                    <div id="tx-buy-btn" class="tx-btn active-buy" onclick="setTxType('BUY')">매수 (추가)</div>
+                    <div id="tx-sell-btn" class="tx-btn" onclick="setTxType('SELL')">매도 (경감)</div>
+                </div>
+
                 <form id="asset-form">
+                    <input type="hidden" id="asset-tx-type" value="BUY">
+                    
                     <div class="form-group">
                         <label>시장 구분</label>
-                        <select id="asset-market">
+                        <select id="asset-market" onchange="clearSearch()">
                             <option value="KR">한국 시장 (KRW)</option>
                             <option value="US">미국 시장 (USD)</option>
                         </select>
@@ -198,14 +224,14 @@
                         <input type="hidden" id="asset-name">
                     </div>
                     <div class="form-group">
-                        <label>보유 수량</label>
-                        <input type="number" id="asset-qty" step="any" placeholder="0.0">
+                        <label id="label-qty">매수 수량</label>
+                        <input type="number" id="asset-qty" step="any" placeholder="0.0" required>
                     </div>
-                    <div class="form-group">
-                        <label>매수 평단가</label>
+                    <div class="form-group" id="price-form-group">
+                        <label id="label-price">매수 평단가</label>
                         <input type="number" id="asset-price" step="any" placeholder="0.0">
                     </div>
-                    <button type="submit" class="btn-submit">완료 및 최신화</button>
+                    <button type="submit" id="submit-btn" class="btn-submit btn-buy-mode">매수 반영하기</button>
                 </form>
             </div>
         </div>
@@ -213,7 +239,39 @@
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
-        // 💡 v1.0.1 내장 표준 포맷팅 엔진 우회 이식 완료
+        let currentTxType = "BUY";
+
+        // 💡 2번 요구사항: 거래 타입(매수/매도) 스위칭 제어기
+        function setTxType(type) {
+            currentTxType = type;
+            document.getElementById("asset-tx-type").value = type;
+            
+            const buyBtn = document.getElementById("tx-buy-btn");
+            const sellBtn = document.getElementById("tx-sell-btn");
+            const submitBtn = document.getElementById("submit-btn");
+            const priceGroup = document.getElementById("price-form-group");
+
+            if (type === "BUY") {
+                buyBtn.className = "tx-btn active-buy";
+                sellBtn.className = "tx-btn";
+                document.getElementById("label-qty").innerText = "매수 수량";
+                document.getElementById("label-price").innerText = "매수 평단가";
+                submitBtn.innerText = "매수 반영하기";
+                submitBtn.className = "btn-submit btn-buy-mode";
+                priceGroup.style.display = "block";
+                document.getElementById("asset-price").required = true;
+            } else {
+                buyBtn.className = "tx-btn";
+                sellBtn.className = "tx-btn active-sell";
+                document.getElementById("label-qty").innerText = "매도 수량";
+                submitBtn.innerText = "매도 차감하기";
+                submitBtn.className = "btn-submit btn-sell-mode";
+                // 분할 매도시에는 평단가가 변하지 않으므로 단가 입력창을 가려 혼선을 방지합니다.
+                priceGroup.style.display = "none";
+                document.getElementById("asset-price").required = false;
+            }
+        }
+
         function toCommas(v) {
             if (v === undefined || v === null) return "0";
             const num = parseFloat(v);
@@ -221,16 +279,21 @@
             return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
         }
 
+        function clearSearch() {
+            document.getElementById("asset-query").value = "";
+            document.getElementById("asset-symbol").value = "";
+            document.getElementById("asset-name").value = "";
+        }
+
         let chartInstance = null;
         function drawChart(chartData) {
             const options = {
                 series: chartData.map(c => c.weight),
                 labels: chartData.map(c => c.name),
-                chart: { type: 'donut', height: 260 },
-                theme: { palette: 'palette1' },
+                chart: { type: 'donut', height: 200 },
                 stroke: { show: false },
-                legend: { position: 'bottom', labels: { colors: '#c9d1d9' } },
-                dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + "%" }
+                legend: { show: false },
+                dataLabels: { enabled: true, style: { fontSize: '10px' } }
             };
             if(chartInstance) chartInstance.destroy();
             chartInstance = new ApexCharts(document.querySelector("#portfolio-chart"), options);
@@ -243,6 +306,15 @@
                 document.getElementById("total-eval-krw").innerText = `₩ ${toCommas(data.total_evaluation_krw)}`;
                 document.getElementById("total-eval-usd").innerText = `$ ${data.total_evaluation_usd.toFixed(2)}`;
                 
+                // 💡 상단 카드 총 수익률 색상 및 기호 바인딩
+                const rKrw = document.getElementById("rate-krw");
+                rKrw.innerText = `${data.profit_rate_krw >= 0 ? '+' : ''}${data.profit_rate_krw}%`;
+                rKrw.className = `card-rate-tag ${data.profit_rate_krw >= 0 ? 'plus' : 'minus'}`;
+
+                const rUsd = document.getElementById("rate-usd");
+                rUsd.innerText = `${data.profit_rate_usd >= 0 ? '+' : ''}${data.profit_rate_usd}%`;
+                rUsd.className = `card-rate-tag ${data.profit_rate_usd >= 0 ? 'plus' : 'minus'}`;
+
                 const usdToKrw = Math.round(data.total_evaluation_usd * data.exchange_rate);
                 document.getElementById("total-eval-usd-converted").innerText = `(₩ ${toCommas(usdToKrw)})`;
 
@@ -324,6 +396,7 @@
         document.getElementById("asset-form").addEventListener("submit", function(e) {
             e.preventDefault();
             const payload = {
+                tx_type: document.getElementById("asset-tx-type").value,
                 market: document.getElementById("asset-market").value,
                 symbol: document.getElementById("asset-symbol").value,
                 name: document.getElementById("asset-name").value,
@@ -337,8 +410,10 @@
             }).then(res => res.json()).then(resData => {
                 if(resData.status === "success") {
                     this.reset();
+                    setTxType("BUY"); // 입력 완료 후 매수 모드로 리셋
+                    clearSearch();
                     loadDashboardData();
-                } else { alert("저장 실패: " + resData.message); }
+                } else { alert("반영 실패: " + resData.message); }
             });
         });
 

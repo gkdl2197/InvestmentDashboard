@@ -14,24 +14,33 @@ supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key) if supabase_url and supabase_key else None
 
+# ==========================================
+# PROJECT: INVESTMENT DASHBOARD
+# VERSION: v1.1.0 (Dual-Track Transaction Engine)
+# DATE: 2026-06-26
+# AUTHOR: 제대리 (Gemini)
+# DESCRIPTION: 매수/매도 분리, 이동평균 평단가 계산, 수량 0일 때 자동 삭제 로직 구현
+# ==========================================
+
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
     if not supabase: return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
 
     db_stocks = []
     try:
-        # 포트폴리오 데이터만 깔끔하게 로드
         res = supabase.table("stock_portfolio").select("*").execute()
         db_stocks = res.data if res.data else []
     except Exception as e:
-        return jsonify({"status": "error", "message": f"DB 로드 치명적 에러: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"DB 로드 에러: {str(e)}"}), 500
 
     exchange_rate = ExchangeRateService().get_usd_krw() or 1350.0
     portfolio = {"KR": [], "US": []}
     
-    # 💡 [핵심 혁신] 원화 총자산과 달러 총자산을 독립적으로 누적 계산
-    total_eval_krw = 0  # 한국 주식 순수 원화 합산 (주석 교정 완료)
-    total_eval_usd = 0  # 미국 주식 순수 달러 합산 (주석 교정 완료)
+    total_eval_krw = 0
+    total_pur_krw = 0  # KRW 총 매수금액 (수익률 계산용)
+    
+    total_eval_usd = 0
+    total_pur_usd = 0  # USD 총 매수금액 (수익률 계산용)
 
     for stock in db_stocks:
         try:
@@ -40,6 +49,8 @@ def get_portfolio():
             market = stock.get("market", "KR")
             symbol = stock.get("symbol", "")
             
+            if qty <= 0: continue # 0 이하 가드라인
+
             stock_data = {
                 "id": stock.get("id"), "symbol": symbol, "name": stock.get("name") or symbol,
                 "quantity": qty, "avg_price": avg_p, "current_price": avg_p, "chg_percent": 0.0,
@@ -48,52 +59,54 @@ def get_portfolio():
             }
             
             if market == "US":
-                # 🇺🇸 미국 주식 세션 ($ 단위 적재)
                 rt = UsStockService.get_realtime_price(symbol)
                 stock_data["purchase_amount"] = round(avg_p * qty, 2)
                 if rt:
                     stock_data["current_price"] = float(rt.get("current_price", avg_p))
-                    stock_data["chg_percent"] = float(rt.get("chg_percent", 0.0))
                 stock_data["eval_amount"] = round(stock_data["current_price"] * qty, 2)
                 stock_data["total_profit"] = round(stock_data["eval_amount"] - stock_data["purchase_amount"], 2)
                 
                 if stock_data["purchase_amount"] > 0:
                     stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
                 
+                total_pur_usd += stock_data["purchase_amount"]
                 total_eval_usd += stock_data["eval_amount"]
             else:
-                # 🇰🇷 한국 주식 세션 (₩ 단위 적재) (주석 교정 완료)
                 rt = KrStockService.get_realtime_price(symbol)
                 stock_data["purchase_amount"] = int(avg_p * qty)
                 if rt:
                     stock_data["current_price"] = float(rt.get("current_price", avg_p))
-                    stock_data["chg_percent"] = float(rt.get("chg_percent", 0.0))
                 stock_data["eval_amount"] = int(stock_data["current_price"] * qty)
                 stock_data["total_profit"] = stock_data["eval_amount"] - stock_data["purchase_amount"]
                 
                 if stock_data["purchase_amount"] > 0:
                     stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
                 
+                total_pur_krw += stock_data["purchase_amount"]
                 total_eval_krw += stock_data["eval_amount"]
 
             portfolio[market].append(stock_data)
         except Exception:
             continue
 
-    # 전체 통합 포트폴리오 가치 (도넛 차트 비중 계산용 원화 환산 통합 규격)
     combined_total_krw = total_eval_krw + int(total_eval_usd * exchange_rate)
 
-    # 📊 자산 비중 계산
     if combined_total_krw > 0:
         for m in ["KR", "US"]:
             for s in portfolio[m]:
                 eval_krw = (s["eval_amount"] * exchange_rate) if m == "US" else s["eval_amount"]
                 s["weight_percent"] = round((eval_krw / combined_total_krw) * 100, 1)
 
+    # 💡 상단 카드 표시용 수익률 산출
+    profit_rate_krw = round(((total_eval_krw - total_pur_krw) / total_pur_krw * 100), 2) if total_pur_krw > 0 else 0.0
+    profit_rate_usd = round(((total_eval_usd - total_pur_usd) / total_pur_usd * 100), 2) if total_pur_usd > 0 else 0.0
+
     return jsonify({
-        "total_evaluation_krw": int(total_eval_krw),  # ₩ 원화 순수 총자산
-        "total_evaluation_usd": round(total_eval_usd, 2),  # $ 달러 순수 총자산
-        "combined_total_krw": combined_total_krw,  # 환율 통합 총자산
+        "total_evaluation_krw": int(total_eval_krw),
+        "profit_rate_krw": profit_rate_krw,
+        "total_evaluation_usd": round(total_eval_usd, 2),
+        "profit_rate_usd": profit_rate_usd,
+        "combined_total_krw": combined_total_krw,
         "exchange_rate": exchange_rate, 
         "portfolio": portfolio
     })
@@ -134,119 +147,60 @@ def search_stock():
     return jsonify(results[:8])
 
 @api_blueprint.route("/portfolio/save", methods=["POST"])
-def save_stock():
-    data = request.json or {}
-    action = data.get("action")
-    market = data.get("market")
-    name = data.get("name", "").strip()
-    target_symbol = data.get("symbol", "").strip().upper()
+def save_portfolio():
+    if not supabase: return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     
-    try: quantity = float(data.get("quantity") or 0)
-    except Exception: quantity = 0.0
-    try: avg_price = float(data.get("avg_price") or 0)
-    except Exception: avg_price = 0.0
-
-    # 💡 [매도 연산 매칭 엔진 완벽 교정]
-    if action in ["sell_all", "sell_part"]:
-        try:
-            exist_res = None
-            # 1. 심볼 코드가 넘어온 경우 심볼로 1차 매칭
-            if target_symbol:
-                exist_res = supabase.table("stock_portfolio").select("*").eq("symbol", target_symbol).execute()
-            
-            # 2. 심볼로 조회가 안 되거나 심볼이 없을 경우 이름으로 유연하게 가드 검색
-            if (not exist_res or not exist_res.data) and name:
-                exist_res = supabase.table("stock_portfolio").select("*").eq("name", name).execute()
-                
-            if exist_res and exist_res.data:
-                target_record = exist_res.data[0]
-                eqty = float(target_record.get("quantity") or 0)
-                eavg = float(target_record.get("avg_price") or 0)
-                emarket = target_record.get("market", "KR")
-                
-                sell_qty = eqty if action == "sell_all" else quantity
-                calc_price = avg_price if avg_price > 0 else eavg
-                exchange_rate = ExchangeRateService().get_usd_krw() or 1350.0
-                
-                if emarket == "KR":
-                    purchase_sub = int(eavg * sell_qty)
-                    sell_sub = int(calc_price * sell_qty)
-                else:
-                    purchase_sub = int(eavg * sell_qty * exchange_rate)
-                    sell_sub = int(calc_price * sell_qty * exchange_rate)
-                    
-                profit_krw = sell_sub - purchase_sub
-                
-                # 실현손익 테이블(realized_profit) 누적 및 연동 계산 보수
-                try:
-                    cur_realized = supabase.table("realized_profit").select("*").eq("id", 1).execute()
-                    if cur_realized.data:
-                        old_amt = int(cur_realized.data[0].get("amount", 0) or 0)
-                        new_amt = old_amt + profit_krw
-                        new_rate = round((profit_krw / purchase_sub) * 100, 2) if purchase_sub > 0 else 0.0
-                        
-                        supabase.table("realized_profit").update({"amount": new_amt, "rate": new_rate}).eq("id", 1).execute()
-                    else:
-                        new_rate = round((profit_krw / purchase_sub) * 100, 2) if purchase_sub > 0 else 0.0
-                        supabase.table("realized_profit").insert({"id": 1, "amount": profit_krw, "rate": new_rate}).execute()
-                except Exception as ex:
-                    print(f"⚠️ 실현손익 테이블 처리 실패: {ex}")
-
-                # 잔고 수량 제어 처리
-                if action == "sell_all":
-                    supabase.table("stock_portfolio").delete().eq("id", target_record["id"]).execute()
-                    return jsonify({"status": "success", "message": f"[{name or target_symbol}] 전량 매도 및 확정 실현손익 정산 완료."})
-                elif action == "sell_part":
-                    new_qty = eqty - quantity
-                    if new_qty <= 0:
-                        supabase.table("stock_portfolio").delete().eq("id", target_record["id"]).execute()
-                    else:
-                        supabase.table("stock_portfolio").update({"quantity": new_qty}).eq("id", target_record["id"]).execute()
-                    return jsonify({"status": "success", "message": f"[{name or target_symbol}] 부분 매도 및 확정 실현손익 반영 완료."})
-            else:
-                return jsonify({"status": "error", "message": f"보유 자산 목록에서 [{name or target_symbol}] 종목을 매칭하지 못했습니다. 입력값을 확인해 주세요."}), 400
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
-
-    # 매수 로직부 기동 가드 유지
-    if not market or not name: return jsonify({"status": "error", "message": "필수값 누락"}), 400
-
-    if not target_symbol:
-        if market == "KR":
-            url = f"https://ac.stock.naver.com/ac?q={name}&target=stock"
-            try:
-                res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=3).json()
-                items = res.get("items", [])
-                if items and isinstance(items, list) and items[0]:
-                    sub = items[0] if isinstance(items[0], list) else items
-                    if sub: target_symbol = str(sub[0][0]) if isinstance(sub[0], list) else str(sub[0].get("code", ""))
-            except Exception: pass
-        elif market == "US":
-            api_key = Config.FINNHUB_API_KEY
-            url = f"https://finnhub.io/api/v1/search?q={name}&token={api_key}"
-            try:
-                res = requests.get(url, timeout=3).json()
-                if "result" in res and res["result"]: target_symbol = res["result"][0].get("symbol", "")
-            except Exception: pass
-
-    if not target_symbol: target_symbol = name.upper()
+    data = request.get_json()
+    market = data.get("market", "KR")
+    symbol = data.get("symbol")
+    name = data.get("name")
+    tx_type = data.get("tx_type", "BUY") # 💡 BUY 또는 SELL 판별
+    input_qty = float(data.get("quantity", 0))
+    input_price = float(data.get("avg_price", 0))
+    
+    if not symbol:
+        return jsonify({"status": "error", "message": "종목 코드가 누락되었습니다."}), 400
 
     try:
-        check_exist = supabase.table("stock_portfolio").select("*").eq("symbol", target_symbol).execute()
-        existing_stock = check_exist.data[0] if check_exist.data else None
-    except Exception: existing_stock = None
-
-    if action in ["new_buy", "add_buy"]:
-        if existing_stock:
-            ext_qty = float(existing_stock.get("quantity") or 0)
-            ext_price = float(existing_stock.get("avg_price") or 0)
-            total_cost = (ext_qty * ext_price) + (quantity * avg_price)
-            new_qty = ext_qty + quantity
-            new_avg = round(total_cost / new_qty, 2) if new_qty > 0 else avg_price
-            supabase.table("stock_portfolio").update({"quantity": new_qty, "avg_price": new_avg, "name": name}).eq("id", existing_stock["id"]).execute()
-            message = f"[{name}] 매수 반영 완료. (평단가: ₩{new_avg})"
+        # 기존 보유 내역이 있는지 조회
+        existing = supabase.table("stock_portfolio").select("*").eq("symbol", symbol).execute()
+        
+        if existing.data and len(existing.data) > 0:
+            current_stock = existing.data[0]
+            old_qty = float(current_stock.get("quantity", 0) or 0)
+            old_price = float(current_stock.get("avg_price", 0) or 0)
+            
+            if tx_type == "BUY":
+                # 💡 [추가 매수] 이동평균법 적용: (기존총액 + 신규총액) / 전체수량
+                new_qty = old_qty + input_qty
+                new_price = ((old_price * old_qty) + (input_price * input_qty)) / new_qty if new_qty > 0 else 0
+                
+                supabase.table("stock_portfolio").update({
+                    "quantity": new_qty, "avg_price": round(new_price, 2) if market=="US" else int(new_price)
+                }).eq("symbol", symbol).execute()
+                
+            else:
+                # 💡 [분할 매도] 평단가는 유지하되 수량만 차감
+                new_qty = old_qty - input_qty
+                
+                if new_qty <= 0:
+                    # 💡 보유 수량이 0 이하가 되면 DB에서 깔끔하게 삭제
+                    supabase.table("stock_portfolio").delete().eq("symbol", symbol).execute()
+                else:
+                    supabase.table("stock_portfolio").update({
+                        "quantity": new_qty
+                    }).eq("symbol", symbol).execute()
         else:
-            supabase.table("stock_portfolio").insert({"market": market, "symbol": target_symbol, "name": name, "quantity": quantity, "avg_price": avg_price}).execute()
-            message = f"[{name}] 신규 종목 등록 완료."
+            # 신규 진입인데 매도를 먼저 누른 가드라인 예외처리
+            if tx_type == "SELL":
+                return jsonify({"status": "error", "message": "보유하지 않은 종목은 매도할 수 없습니다."}), 400
+                
+            # 최초 매수 등록
+            supabase.table("stock_portfolio").insert({
+                "market": market, "symbol": symbol, "name": name,
+                "quantity": input_qty, "avg_price": input_price
+            }).execute()
 
-    return jsonify({"status": "success", "message": message})
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
