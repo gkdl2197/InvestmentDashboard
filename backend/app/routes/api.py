@@ -96,21 +96,28 @@ def search_stock():
     if not query: return jsonify([])
     
     results = []
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://finance.naver.com'
+    }
     
     if market == "KR":
-        url = f"https://ac.stock.naver.com/ac?q={query}&target=stock"
+        # 💡 [정밀 타격] 네이버 금융 최신 실시간 검색 API 주소로 교체
+        url = f"https://stock.naver.com/api/json/search/all/{requests.utils.quote(query)}"
         try:
             res = requests.get(url, headers=headers, timeout=5).json()
-            items = res.get("items", [])
-            if items and isinstance(items, list):
-                for sub in items:
-                    if not sub: continue
-                    target_list = sub if isinstance(sub, list) else [sub]
-                    for item in target_list:
-                        if isinstance(item, list) and len(item) >= 2:
-                            results.append({"symbol": str(item[0]), "name": str(item[1])})
-        except Exception: pass
+            # 최신 네이버 API의 국내 주식(stock) 결과 영역 파싱 가드
+            search_items = res.get("result", {}).get("stock", [])
+            if search_items and isinstance(search_items, list):
+                for item in search_items:
+                    # 'code'와 'name' 규격 매칭
+                    sym = item.get("code")
+                    nm = item.get("name")
+                    if sym and nm:
+                        results.append({"symbol": str(sym), "name": str(nm)})
+        except Exception as e:
+            print(f"❌ 국내 자동검색 API 파싱 실패: {e}")
+            
     elif market == "US":
         api_key = Config.FINNHUB_API_KEY
         url = f"https://finnhub.io/api/v1/search?q={query}&token={api_key}"
