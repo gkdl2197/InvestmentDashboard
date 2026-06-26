@@ -25,17 +25,17 @@ def get_portfolio():
     try:
         res = supabase.table("stock_portfolio").select("*").execute()
         db_stocks = res.data if res.data else []
+        
         r_res = supabase.table("realized_profit").select("*").eq("id", 1).execute()
-        if r_res.data: 
+        if r_res.data and len(r_res.data) > 0: 
             realized_amount = int(r_res.data[0].get("amount", 0) or 0)
             realized_rate = float(r_res.data[0].get("rate", 0.0) or 0.0)
     except Exception as e:
-        print(f"❌ DB 로드 실패 가드: {e}")
+        return jsonify({"status": "error", "message": f"DB 로드 치명적 에러: {str(e)}"}), 500
 
     exchange_rate = ExchangeRateService().get_usd_krw() or 1350.0
     portfolio = {"KR": [], "US": []}
-    total_purchase = 0       
-    total_evaluation = 0     
+    total_evaluation_krw = 0     
 
     for stock in db_stocks:
         try:
@@ -44,45 +44,57 @@ def get_portfolio():
             market = stock.get("market", "KR")
             symbol = stock.get("symbol", "")
             
+            # 💡 [화폐 규격 분리] 시장별 독립 딕셔너리 빌드
             stock_data = {
                 "id": stock.get("id"), "symbol": symbol, "name": stock.get("name") or symbol,
                 "quantity": qty, "avg_price": avg_p, "current_price": avg_p, "chg_percent": 0.0,
-                "purchase_amount_krw": 0, "eval_amount_krw": 0, "total_profit_krw": 0,
+                "purchase_amount": 0, "eval_amount": 0, "total_profit": 0,
                 "total_profit_percent": 0.0, "weight_percent": 0.0, "market": market
             }
             
             if market == "US":
+                # 🇺🇸 미국 주식: 모든 재무 단위를 순수 달러($)로 계산 및 유지
                 rt = UsStockService.get_realtime_price(symbol)
-                stock_data["purchase_amount_krw"] = int(avg_p * qty * exchange_rate)
+                stock_data["purchase_amount"] = round(avg_p * qty, 2)
                 if rt:
                     stock_data["current_price"] = float(rt.get("current_price", avg_p))
                     stock_data["chg_percent"] = float(rt.get("chg_percent", 0.0))
-                stock_data["eval_amount_krw"] = int(stock_data["current_price"] * qty * exchange_rate)
+                stock_data["eval_amount"] = round(stock_data["current_price"] * qty, 2)
+                stock_data["total_profit"] = round(stock_data["eval_amount"] - stock_data["purchase_amount"], 2)
+                
+                if stock_data["purchase_amount"] > 0:
+                    stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
+                
+                # 전체 포트폴리오 비중 계산용 총 원화 합산 가드만 유지
+                total_evaluation_krw += int(stock_data["eval_amount"] * exchange_rate)
             else:
+                # 🇰🇷 한국 주식: 기존 원화(₩) 체계 유지
                 rt = KrStockService.get_realtime_price(symbol)
-                stock_data["purchase_amount_krw"] = int(avg_p * qty)
+                stock_data["purchase_amount"] = int(avg_p * qty)
                 if rt:
                     stock_data["current_price"] = float(rt.get("current_price", avg_p))
                     stock_data["chg_percent"] = float(rt.get("chg_percent", 0.0))
-                stock_data["eval_amount_krw"] = int(stock_data["current_price"] * qty)
-            
-            stock_data["total_profit_krw"] = stock_data["eval_amount_krw"] - stock_data["purchase_amount_krw"]
-            if stock_data["purchase_amount_krw"] > 0:
-                stock_data["total_profit_percent"] = round((stock_data["total_profit_krw"] / stock_data["purchase_amount_krw"]) * 100, 2)
+                stock_data["eval_amount"] = int(stock_data["current_price"] * qty)
+                stock_data["total_profit"] = stock_data["eval_amount"] - stock_data["purchase_amount"]
+                
+                if stock_data["purchase_amount"] > 0:
+                    stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
+                
+                total_evaluation_krw += stock_data["eval_amount"]
 
             portfolio[market].append(stock_data)
-            total_purchase += stock_data["purchase_amount_krw"]
-            total_evaluation += stock_data["eval_amount_krw"]
         except Exception:
             continue
 
-    if total_evaluation > 0:
+    # 📊 비중(Weight) 재계산 (원화 환산 가치 기준 비중 설정)
+    if total_evaluation_krw > 0:
         for m in ["KR", "US"]:
             for s in portfolio[m]:
-                s["weight_percent"] = round((s["eval_amount_krw"] / total_evaluation) * 100, 1)
+                eval_krw = (s["eval_amount"] * exchange_rate) if m == "US" else s["eval_amount"]
+                s["weight_percent"] = round((eval_krw / total_evaluation_krw) * 100, 1)
 
     return jsonify({
-        "total_evaluation": int(total_evaluation),
+        "total_evaluation": int(total_evaluation_krw),
         "realized_profit": realized_amount,
         "realized_rate": round(realized_rate, 2), 
         "exchange_rate": exchange_rate, 
