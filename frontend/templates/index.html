@@ -43,7 +43,6 @@
         .header h1 span { color: var(--lime-green); }
         .fx-rate { font-family: 'JetBrains Mono', monospace; color: #8b949e; }
 
-        /* 💡 상단 카드: 원화 - 달러 - 포트폴리오 비중 레이아웃 */
         .summary-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -66,7 +65,6 @@
             gap: 30px;
         }
 
-        /* 💡 테이블 섹션: 원화 종목 / 달러 종목 분리 */
         .section-title {
             font-size: 20px;
             color: var(--text-white);
@@ -93,7 +91,6 @@
         .plus { color: var(--plus-color) !important; }
         .minus { color: var(--minus-color) !important; }
 
-        /* 💡 자산 업데이트 터미널 UI 변경 */
         .panel-title { font-size: 18px; color: var(--text-white); margin-bottom: 20px; font-weight: 700; }
         .form-group { margin-bottom: 15px; position: relative; }
         label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 6px; }
@@ -108,7 +105,6 @@
         }
         .btn-submit:hover { opacity: 0.9; }
 
-        /* 자동완성 팝업 */
         .autocomplete-box {
             position: absolute; top: 100%; left: 0; right: 0; background-color: #1f242c;
             border: 1px solid var(--border-color); border-radius: 6px; z-index: 99; max-height: 200px;
@@ -117,7 +113,6 @@
         .autocomplete-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid rgba(48,54,61,0.3); }
         .autocomplete-item:hover { background-color: rgba(222, 255, 154, 0.1); color: var(--lime-green); }
         
-        /* 도넛차트 컨테이너 */
         #portfolio-chart { width: 100%; height: 260px; margin-top: 15px; }
     </style>
 </head>
@@ -145,7 +140,6 @@
     </div>
 
     <div class="dashboard-body">
-        
         <div>
             <div class="section-title">원화 종목 <span class="badge-kr">₩ KRW</span></div>
             <div class="table-container">
@@ -219,21 +213,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
-       // ==========================================
-// VERSION: v1.0.1 (Fix toCommas regex bug)
-// DATE: 2026-06-26
-// AUTHOR: 제대리 (Gemini)
-// DESCRIPTION: 숫자가 한두 자리마다 쪼개져 쉼표가 난사되던 정규식 버그 완벽 수정
-// ==========================================
-function toCommas(v) {
-    if (v === undefined || v === null) return "0";
-    // 내장 함수인 toLocaleString을 사용하여 브라우저 표준 3자리 쉼표 규격을 강제 적용합니다.
-    const num = parseFloat(v);
-    if (isNaN(num)) return v.toString();
-    
-    // 정수면 그대로 3자리 쉼표, 소수점이 있으면 소수점 유전자를 보존합니다.
-    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
+        // 💡 v1.0.1 내장 표준 포맷팅 엔진 우회 이식 완료
+        function toCommas(v) {
+            if (v === undefined || v === null) return "0";
+            const num = parseFloat(v);
+            if (isNaN(num)) return v.toString();
+            return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
 
         let chartInstance = null;
         function drawChart(chartData) {
@@ -251,7 +237,6 @@ function toCommas(v) {
             chartInstance.render();
         }
 
-        // 💡 실시간 데이터 투트랙 매핑 엔진
         function loadDashboardData() {
             fetch("/api/portfolio").then(res => res.json()).then(data => {
                 document.getElementById("fx-display").innerText = `환율: ₩ ${toCommas(data.exchange_rate)}`;
@@ -268,7 +253,6 @@ function toCommas(v) {
                 let chartData = [];
                 const fx = data.exchange_rate || 1350.0;
 
-                // 🇰🇷 한국 자산 렌더링
                 if (data.portfolio && data.portfolio["KR"]) {
                     data.portfolio["KR"].forEach(s => {
                         chartData.push({ name: s.name, weight: s.weight_percent });
@@ -286,7 +270,6 @@ function toCommas(v) {
                     });
                 }
 
-                // 🇺🇸 미국 자산 렌더링 (순수 달러 베이스 + 괄호 환산 정보)
                 if (data.portfolio && data.portfolio["US"]) {
                     data.portfolio["US"].forEach(s => {
                         chartData.push({ name: s.name, weight: s.weight_percent });
@@ -310,7 +293,6 @@ function toCommas(v) {
             });
         }
 
-        // Supabase 연동형 주식 검색창 제어 스크립트
         const qInput = document.getElementById("asset-query");
         const rBox = document.getElementById("search-results");
 
@@ -339,7 +321,6 @@ function toCommas(v) {
                 });
         });
 
-        // 자산 업데이트 제출 처리
         document.getElementById("asset-form").addEventListener("submit", function(e) {
             e.preventDefault();
             const payload = {
