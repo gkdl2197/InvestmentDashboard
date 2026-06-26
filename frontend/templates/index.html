@@ -34,11 +34,7 @@
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 10px;
         }
-        .header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--text-white);
-        }
+        .header h1 { font-size: 28px; font-weight: 700; color: var(--text-white); }
         .header h1 span { color: var(--lime-green); }
         .fx-rate { font-family: 'JetBrains Mono', monospace; color: #8b949e; font-size: 14px; }
 
@@ -88,8 +84,16 @@
         th { background-color: rgba(0,0,0,0.15); padding: 10px 14px; color: #8b949e; font-size: 13px; border-bottom: 1px solid var(--border-color); }
         td { padding: 11px 14px; border-bottom: 1px solid rgba(48, 54, 61, 0.4); color: var(--text-white); font-size: 14px; }
         .text-right { text-align: right; }
+        .text-center { text-align: center; }
         .plus { color: var(--plus-color) !important; }
         .minus { color: var(--minus-color) !important; }
+
+        /* 💡 v1.3.1 삭제 버튼 전용 미니멀 테크니컬 디자인스타일 */
+        .btn-delete-row {
+            background: transparent; border: none; color: #8b949e; cursor: pointer;
+            padding: 4px 8px; border-radius: 4px; transition: all 0.2s; font-size: 13px;
+        }
+        .btn-delete-row:hover { background-color: rgba(248, 81, 73, 0.2); color: var(--minus-color); }
 
         .panel-title { font-size: 16px; color: var(--text-white); margin-bottom: 15px; font-weight: 700; }
         .tx-toggle-container {
@@ -123,7 +127,7 @@
         .autocomplete-box {
             position: absolute; top: 100%; left: 0; right: 0; background-color: #1f242c;
             border: 1px solid var(--border-color); border-radius: 6px; z-index: 99; max-height: 180px;
-            overflow-y: auto;
+            overflow-y: auto; display: none;
         }
         .autocomplete-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid rgba(48,54,61,0.3); font-size: 13px; }
         .autocomplete-item:hover { background-color: rgba(222, 255, 154, 0.1); color: var(--lime-green); }
@@ -168,7 +172,7 @@
                             <th class="text-right">현재가</th>
                             <th class="text-right">평가금액</th>
                             <th class="text-right">수익률</th>
-                        </tr>
+                            <th class="text-center" style="width: 60px;">관리</th> </tr>
                     </thead>
                     <tbody id="kr-table-body"></tbody>
                 </table>
@@ -185,7 +189,7 @@
                             <th class="text-right">현재가</th>
                             <th class="text-right">평가금액</th>
                             <th class="text-right">수익률</th>
-                        </tr>
+                            <th class="text-center" style="width: 60px;">관리</th> </tr>
                     </thead>
                     <tbody id="us-table-body"></tbody>
                 </table>
@@ -240,7 +244,6 @@
     <script>
         let currentTxType = "BUY";
 
-        // 💡 v1.1.1 매수/매도 단가 전환 토글 컨트롤러
         function setTxType(type) {
             currentTxType = type;
             document.getElementById("asset-tx-type").value = type;
@@ -254,14 +257,14 @@
                 buyBtn.className = "tx-btn active-buy";
                 sellBtn.className = "tx-btn";
                 document.getElementById("label-qty").innerText = "매수 수량";
-                labelPrice.innerText = "매수 단가"; // '매수 평단가' -> '매수 단가' 교정
+                labelPrice.innerText = "매수 단가";
                 submitBtn.innerText = "매수 반영하기";
                 submitBtn.className = "btn-submit btn-buy-mode";
             } else {
                 buyBtn.className = "tx-btn";
                 sellBtn.className = "tx-btn active-sell";
                 document.getElementById("label-qty").innerText = "매도 수량";
-                labelPrice.innerText = "매도 단가"; // 💡 매도 시 '매도 단가' 입력 필드 활성화
+                labelPrice.innerText = "매도 단가";
                 submitBtn.innerText = "매도 차감하기";
                 submitBtn.className = "btn-submit btn-sell-mode";
             }
@@ -280,8 +283,36 @@
             document.getElementById("asset-name").value = "";
         }
 
+        // 💡 v1.3.1 임의 강제 삭제 API 트리거 체인 함수 신설
+        function deleteStockRow(market, symbol, name) {
+            if (!confirm(`[${name}] 종목을 포트폴리오에서 즉시 제거하시겠습니까?`)) return;
+
+            const payload = {
+                tx_type: "SELL", // 매도 트리거 발생
+                market: market,
+                symbol: symbol,
+                name: name,
+                quantity: 99999999, // 💡 기존 보유 수량보다 무조건 큰 숫자를 쏴서 강제로 0 이하 클렌징 유도
+                avg_price: 0
+            };
+
+            fetch("/api/portfolio/save", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }).then(res => res.json()).then(resData => {
+                if(resData.status === "success") {
+                    loadDashboardData(); // 새로고침 없이 즉시 화면 갱신
+                } else { alert("삭제 실패: " + resData.message); }
+            });
+        }
+
         let chartInstance = null;
         function drawChart(chartData) {
+            if (!chartData || chartData.length === 0) {
+                if(chartInstance) chartInstance.destroy();
+                document.querySelector("#portfolio-chart").innerHTML = "<div style='color:#8b949e; text-align:center; padding-top:80px; font-size:13px;'>자산 데이터가 없습니다.</div>";
+                return;
+            }
             const options = {
                 series: chartData.map(c => c.weight),
                 labels: chartData.map(c => c.name),
@@ -331,6 +362,7 @@
                             <td class="text-right font-mono">₩ ${toCommas(s.current_price)}</td>
                             <td class="text-right font-mono"><b>₩ ${toCommas(s.eval_amount)}</b><br><span style="color:#8b949e; font-size:11px;">(${s.weight_percent}%)</span></td>
                             <td class="text-right font-mono ${isPlus?'plus':'minus'}"><b>${s.total_profit_percent}%</b><br><span>${isPlus?'+':''}₩ ${toCommas(s.total_profit)}</span></td>
+                            <td class="text-center"><button class="btn-delete-row" onclick="deleteStockRow('KR', '${s.symbol}', '${s.name}')"><i class="fa-solid fa-trash-can"></i></button></td>
                         `;
                         krTbody.appendChild(tr);
                     });
@@ -351,6 +383,7 @@
                             <td class="text-right font-mono">$ ${s.current_price.toFixed(2)}</td>
                             <td class="text-right font-mono"><b>$ ${toCommas(s.eval_amount)}</b><br><span style="color:#8b949e; font-size:11px;">(₩ ${toCommas(evalKrw)})</span></td>
                             <td class="text-right font-mono ${isPlus?'plus':'minus'}"><b>${s.total_profit_percent}%</b><br><span>${isPlus?'+':''}$ ${toCommas(s.total_profit)}</span><br><span style="font-size:11px; color:${isPlus?'#3fb950':'#f85149'}">(₩ ${toCommas(profitKrw)})</span></td>
+                            <td class="text-center"><button class="btn-delete-row" onclick="deleteStockRow('US', '${s.symbol}', '${s.name}')"><i class="fa-solid fa-trash-can"></i></button></td>
                         `;
                         usTbody.appendChild(tr);
                     });
