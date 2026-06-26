@@ -30,8 +30,8 @@ def get_portfolio():
     portfolio = {"KR": [], "US": []}
     
     # 💡 [핵심 혁신] 원화 총자산과 달러 총자산을 독립적으로 누적 계산
-    total_eval_krw = 0  -- 한국 주식 순수 원화 합산
-    total_eval_usd = 0  -- 미국 주식 순수 달러 합산
+    total_eval_krw = 0  # 한국 주식 순수 원화 합산 (주석 교정 완료)
+    total_eval_usd = 0  # 미국 주식 순수 달러 합산 (주석 교정 완료)
 
     for stock in db_stocks:
         try:
@@ -62,7 +62,7 @@ def get_portfolio():
                 
                 total_eval_usd += stock_data["eval_amount"]
             else:
-                -- 🇰🇷 한국 주식 세션 (₩ 단위 적재)
+                # 🇰🇷 한국 주식 세션 (₩ 단위 적재) (주석 교정 완료)
                 rt = KrStockService.get_realtime_price(symbol)
                 stock_data["purchase_amount"] = int(avg_p * qty)
                 if rt:
