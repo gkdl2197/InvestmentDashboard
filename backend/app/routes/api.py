@@ -98,26 +98,19 @@ def search_stock():
     results = []
     
     if market == "KR":
-        # 💡 [명세 원복] 다음(Daum) 전면 폐기, 기존 네이버 금융 검색 엔진으로 철저하게 원복
-        # 해외 Vercel 서버 IP 차단을 우회하기 위한 모바일 웹 프록시 규격 주소 조준
-        url = f"https://ac.stock.naver.com/ac?q={requests.utils.quote(query)}&target=stock"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G960F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-            'Referer': 'https://m.stock.naver.com/'
-        }
+        # 💡 [구조 대혁신] 네이버 연동 전면 폐기 -> 우리 Supabase 인덱싱 테이블에서 ilike 검색
         try:
-            res = requests.get(url, headers=headers, timeout=5).json()
-            # 💡 기존 네이버 API의 다차원 배열 리스트 구조([items][0]) 안전 가드 파싱
-            items = res.get("items", [])
-            if items and isinstance(items, list) and items[0]:
-                target_list = items[0]
-                if isinstance(target_list, list):
-                    for item in target_list:
-                        if isinstance(item, list) and len(item) >= 2:
-                            # item[0]: 종목코드 (e.g. "005930"), item[1]: 종목명 (e.g. "삼성전자")
-                            results.append({"symbol": str(item[0]), "name": str(item[1])})
+            res = supabase.table("kr_stock_list") \
+                .select("symbol, name") \
+                .ilike("name", f"%{query}%") \
+                .limit(8) \
+                .execute()
+                
+            if res.data:
+                for item in res.data:
+                    results.append({"symbol": item.get("symbol"), "name": item.get("name")})
         except Exception as e:
-            print(f"❌ 국내 네이버 자동검색 API 파싱 실패: {e}")
+            print(f"❌ 국내 Supabase 자체 자동검색 쿼리 실패: {e}")
             
     elif market == "US":
         api_key = Config.FINNHUB_API_KEY
