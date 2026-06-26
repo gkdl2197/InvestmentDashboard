@@ -69,10 +69,10 @@
                 <p>총 평가 자산</p>
                 <h2 id="total-eval">₩ 0</h2>
             </div>
-            <div class="card">
-                <p>오늘 확정 실현손익</p>
-                <h2 id="realized-profit">₩ 0</h2>
-            </div>
+            <div class="card" style="border-top: 4px solid #58a6ff;">
+            <div class="card-title">미국 주식 총자산 (US)</div>
+            <div id="total-eval-usd" class="card-value font-mono">$ 0.00</div>
+            <span id="total-eval-usd-krw" style="color:#8b949e; font-size:14px; display:block; margin-top:5px;">(₩ 0)</span>
         </div>
         <div class="chart-card">
             <p style="margin-bottom: 15px;">포트폴리오 비중</p>
@@ -145,36 +145,19 @@
 
     function loadDashboardData() {
         fetch("/api/portfolio").then(res => res.json()).then(data => {
-            // 💡 환율 및 총 평가자산은 상시 원화(₩)로 자동 계산 및 표출 유지
+            // 💡 상단 이원화 자산 카드 렌더링
             document.getElementById("fx-display").innerText = `환율: ₩ ${toCommas(data.exchange_rate)}`;
-            document.getElementById("total-eval").innerText = `₩ ${toCommas(data.total_evaluation)}`;
-
-            const rEl = document.getElementById("realized-profit");
-            const oldTag = document.getElementById("realized-rate-tag");
-            if (oldTag) oldTag.remove();
-
-            const realizedAmt = data.realized_profit || 0;
-            const realizedRate = data.realized_rate || 0.0;
-            const realizedCard = rEl.closest('.card');
-
-            if (realizedAmt > 0) {
-                rEl.innerText = `₩ ${toCommas(realizedAmt)}`; rEl.className = "plus";
-                realizedCard.style.borderTop = "4px solid #3fb950";
-                rEl.insertAdjacentHTML('afterend', `<span id="realized-rate-tag" class="plus" style="font-size:14px; font-weight:bold; display:block; margin-top:5px;"><i class="fa-solid fa-caret-up"></i> +${realizedRate}%</span>`);
-            } else if (realizedAmt < 0) {
-                rEl.innerText = `₩ ${toCommas(realizedAmt)}`; rEl.className = "minus";
-                realizedCard.style.borderTop = "4px solid #f85149";
-                rEl.insertAdjacentHTML('afterend', `<span id="realized-rate-tag" class="minus" style="font-size:14px; font-weight:bold; display:block; margin-top:5px;"><i class="fa-solid fa-caret-down"></i> ${realizedRate}%</span>`);
-            } else {
-                rEl.innerText = `₩ 0`; rEl.className = "";
-                realizedCard.style.borderTop = "4px solid #58a6ff";
-                rEl.insertAdjacentHTML('afterend', `<span id="realized-rate-tag" style="color:#8b949e; font-size:14px; display:block; margin-top:5px;">0.0%</span>`);
-            }
+            document.getElementById("total-eval").innerText = `₩ ${toCommas(data.total_evaluation_krw)}`;
+            
+            // 미국 주식 순수 달러 총자산 및 하단 괄호 원화 자동 환산 정보 매핑
+            document.getElementById("total-eval-usd").innerText = `$ ${data.total_evaluation_usd.toFixed(2)}`;
+            const totalUsdToKrw = Math.round(data.total_evaluation_usd * data.exchange_rate);
+            document.getElementById("total-eval-usd-krw").innerText = `(₩ ${toCommas(totalUsdToKrw)})`;
 
             const tbody = document.getElementById("portfolio-table-body");
             tbody.innerHTML = "";
             let chartData = [];
-            const fx = data.exchange_rate || 1350.0; // 💡 실시간 변동 환율 캐싱
+            const fx = data.exchange_rate || 1350.0;
 
             ["KR", "US"].forEach(m => {
                 if (data.portfolio && data.portfolio[m]) {
@@ -183,12 +166,10 @@
                         const isPlus = s.total_profit >= 0;
                         chartData.push({ name: s.name, weight: s.weight_percent });
 
-                        // 💡 [자산 이원화 가드 & 원화 환산 동시 렌더링 엔진]
                         const sign = s.market === 'US' ? '$ ' : '₩ ';
                         const formattedAvg = s.market === 'US' ? s.avg_price.toFixed(2) : toCommas(s.avg_price);
                         const formattedCur = s.market === 'US' ? s.current_price.toFixed(2) : toCommas(s.current_price);
                         
-                        // 미국 주식일 경우 달러 표기 밑에 (₩ 원화 환산) 결과를 실시간으로 계산하여 추가 배정
                         let evalDisplay = `<b>${sign}${toCommas(s.eval_amount)}</b>`;
                         let profitDisplay = `<span>${isPlus?'+':''}${sign}${toCommas(s.total_profit)}</span>`;
                         

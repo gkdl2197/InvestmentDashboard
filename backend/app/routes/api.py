@@ -19,23 +19,19 @@ def get_portfolio():
     if not supabase: return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
 
     db_stocks = []
-    realized_amount = 0
-    realized_rate = 0.0
-    
     try:
+        # 포트폴리오 데이터만 깔끔하게 로드
         res = supabase.table("stock_portfolio").select("*").execute()
         db_stocks = res.data if res.data else []
-        
-        r_res = supabase.table("realized_profit").select("*").eq("id", 1).execute()
-        if r_res.data and len(r_res.data) > 0: 
-            realized_amount = int(r_res.data[0].get("amount", 0) or 0)
-            realized_rate = float(r_res.data[0].get("rate", 0.0) or 0.0)
     except Exception as e:
         return jsonify({"status": "error", "message": f"DB 로드 치명적 에러: {str(e)}"}), 500
 
     exchange_rate = ExchangeRateService().get_usd_krw() or 1350.0
     portfolio = {"KR": [], "US": []}
-    total_evaluation_krw = 0     
+    
+    # 💡 [핵심 혁신] 원화 총자산과 달러 총자산을 독립적으로 누적 계산
+    total_eval_krw = 0  -- 한국 주식 순수 원화 합산
+    total_eval_usd = 0  -- 미국 주식 순수 달러 합산
 
     for stock in db_stocks:
         try:
@@ -44,7 +40,6 @@ def get_portfolio():
             market = stock.get("market", "KR")
             symbol = stock.get("symbol", "")
             
-            # 💡 [화폐 규격 분리] 시장별 독립 딕셔너리 빌드
             stock_data = {
                 "id": stock.get("id"), "symbol": symbol, "name": stock.get("name") or symbol,
                 "quantity": qty, "avg_price": avg_p, "current_price": avg_p, "chg_percent": 0.0,
@@ -53,7 +48,7 @@ def get_portfolio():
             }
             
             if market == "US":
-                # 🇺🇸 미국 주식: 모든 재무 단위를 순수 달러($)로 계산 및 유지
+                # 🇺🇸 미국 주식 세션 ($ 단위 적재)
                 rt = UsStockService.get_realtime_price(symbol)
                 stock_data["purchase_amount"] = round(avg_p * qty, 2)
                 if rt:
@@ -65,10 +60,9 @@ def get_portfolio():
                 if stock_data["purchase_amount"] > 0:
                     stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
                 
-                # 전체 포트폴리오 비중 계산용 총 원화 합산 가드만 유지
-                total_evaluation_krw += int(stock_data["eval_amount"] * exchange_rate)
+                total_eval_usd += stock_data["eval_amount"]
             else:
-                # 🇰🇷 한국 주식: 기존 원화(₩) 체계 유지
+                -- 🇰🇷 한국 주식 세션 (₩ 단위 적재)
                 rt = KrStockService.get_realtime_price(symbol)
                 stock_data["purchase_amount"] = int(avg_p * qty)
                 if rt:
@@ -80,23 +74,26 @@ def get_portfolio():
                 if stock_data["purchase_amount"] > 0:
                     stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
                 
-                total_evaluation_krw += stock_data["eval_amount"]
+                total_eval_krw += stock_data["eval_amount"]
 
             portfolio[market].append(stock_data)
         except Exception:
             continue
 
-    # 📊 비중(Weight) 재계산 (원화 환산 가치 기준 비중 설정)
-    if total_evaluation_krw > 0:
+    # 전체 통합 포트폴리오 가치 (도넛 차트 비중 계산용 원화 환산 통합 규격)
+    combined_total_krw = total_eval_krw + int(total_eval_usd * exchange_rate)
+
+    # 📊 자산 비중 계산
+    if combined_total_krw > 0:
         for m in ["KR", "US"]:
             for s in portfolio[m]:
                 eval_krw = (s["eval_amount"] * exchange_rate) if m == "US" else s["eval_amount"]
-                s["weight_percent"] = round((eval_krw / total_evaluation_krw) * 100, 1)
+                s["weight_percent"] = round((eval_krw / combined_total_krw) * 100, 1)
 
     return jsonify({
-        "total_evaluation": int(total_evaluation_krw),
-        "realized_profit": realized_amount,
-        "realized_rate": round(realized_rate, 2), 
+        "total_evaluation_krw": int(total_eval_krw),  # ₩ 원화 순수 총자산
+        "total_evaluation_usd": round(total_eval_usd, 2),  # $ 달러 순수 총자산
+        "combined_total_krw": combined_total_krw,  # 환율 통합 총자산
         "exchange_rate": exchange_rate, 
         "portfolio": portfolio
     })
