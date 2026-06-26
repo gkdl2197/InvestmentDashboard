@@ -219,10 +219,21 @@
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
-        function toCommas(v) {
-            if(v === undefined || v === null) return "0";
-            return v.toString().replace(/\B(?=(\d{3})+(?!\n))/g, ",");
-        }
+       // ==========================================
+// VERSION: v1.0.1 (Fix toCommas regex bug)
+// DATE: 2026-06-26
+// AUTHOR: 제대리 (Gemini)
+// DESCRIPTION: 숫자가 한두 자리마다 쪼개져 쉼표가 난사되던 정규식 버그 완벽 수정
+// ==========================================
+function toCommas(v) {
+    if (v === undefined || v === null) return "0";
+    // 내장 함수인 toLocaleString을 사용하여 브라우저 표준 3자리 쉼표 규격을 강제 적용합니다.
+    const num = parseFloat(v);
+    if (isNaN(num)) return v.toString();
+    
+    // 정수면 그대로 3자리 쉼표, 소수점이 있으면 소수점 유전자를 보존합니다.
+    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
 
         let chartInstance = null;
         function drawChart(chartData) {
