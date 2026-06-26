@@ -129,29 +129,27 @@ def save_stock():
     action = data.get("action")
     market = data.get("market")
     name = data.get("name", "").strip()
+    target_symbol = data.get("symbol", "").strip().upper()
     
     try: quantity = float(data.get("quantity") or 0)
     except Exception: quantity = 0.0
     try: avg_price = float(data.get("avg_price") or 0)
     except Exception: avg_price = 0.0
 
-    # 💡 [버그 교정] 매도(sell_all, sell_part) 정산 동기화 엔진 대대적 보수
+    # 💡 [매도 연산 매칭 엔진 완벽 교정]
     if action in ["sell_all", "sell_part"]:
-        target_symbol = data.get("symbol", "").strip().upper()
-        if not target_symbol and name:
-            target_symbol = name.upper()
-            
         try:
-            # 1차 매칭: 종목 코드로 조회
-            exist_res = supabase.table("stock_portfolio").select("*").eq("symbol", target_symbol).execute()
+            exist_res = None
+            # 1. 심볼 코드가 넘어온 경우 심볼로 1차 매칭
+            if target_symbol:
+                exist_res = supabase.table("stock_portfolio").select("*").eq("symbol", target_symbol).execute()
             
-            # 2차 가드 매칭: 코드로 안 나올 경우 종목명으로 조회 유연화
-            if not exist_res.data and name:
+            # 2. 심볼로 조회가 안 되거나 심볼이 없을 경우 이름으로 유연하게 가드 검색
+            if (not exist_res or not exist_res.data) and name:
                 exist_res = supabase.table("stock_portfolio").select("*").eq("name", name).execute()
                 
-            if exist_res.data:
+            if exist_res and exist_res.data:
                 target_record = exist_res.data[0]
-                actual_symbol = target_record.get("symbol")
                 eqty = float(target_record.get("quantity") or 0)
                 eavg = float(target_record.get("avg_price") or 0)
                 emarket = target_record.get("market", "KR")
@@ -160,7 +158,6 @@ def save_stock():
                 calc_price = avg_price if avg_price > 0 else eavg
                 exchange_rate = ExchangeRateService().get_usd_krw() or 1350.0
                 
-                # 원금 및 매도금 계산 (통화별 가드 반영)
                 if emarket == "KR":
                     purchase_sub = int(eavg * sell_qty)
                     sell_sub = int(calc_price * sell_qty)
@@ -170,24 +167,22 @@ def save_stock():
                     
                 profit_krw = sell_sub - purchase_sub
                 
-                # 💡 실현손익 테이블(realized_profit)에 무조건 동기화 및 강제 업데이트
+                # 실현손익 테이블(realized_profit) 누적 및 연동 계산 보수
                 try:
                     cur_realized = supabase.table("realized_profit").select("*").eq("id", 1).execute()
                     if cur_realized.data:
                         old_amt = int(cur_realized.data[0].get("amount", 0) or 0)
                         new_amt = old_amt + profit_krw
-                        # 수익률 산출 가드
                         new_rate = round((profit_krw / purchase_sub) * 100, 2) if purchase_sub > 0 else 0.0
                         
                         supabase.table("realized_profit").update({"amount": new_amt, "rate": new_rate}).eq("id", 1).execute()
                     else:
-                        # 데이터가 없는 비정상 상태일 경우 insert 가드
                         new_rate = round((profit_krw / purchase_sub) * 100, 2) if purchase_sub > 0 else 0.0
                         supabase.table("realized_profit").insert({"id": 1, "amount": profit_krw, "rate": new_rate}).execute()
                 except Exception as ex:
-                    print(f"⚠️ 실현손익 반영 중 예외 처리: {ex}")
+                    print(f"⚠️ 실현손익 테이블 처리 실패: {ex}")
 
-                # 포트폴리오 잔고 수량 차감 처리
+                # 잔고 수량 제어 처리
                 if action == "sell_all":
                     supabase.table("stock_portfolio").delete().eq("id", target_record["id"]).execute()
                     return jsonify({"status": "success", "message": f"[{name or target_symbol}] 전량 매도 및 확정 실현손익 정산 완료."})
@@ -199,15 +194,14 @@ def save_stock():
                         supabase.table("stock_portfolio").update({"quantity": new_qty}).eq("id", target_record["id"]).execute()
                     return jsonify({"status": "success", "message": f"[{name or target_symbol}] 부분 매도 및 확정 실현손익 반영 완료."})
             else:
-                return jsonify({"status": "error", "message": f"보유 자산 목록에서 종목을 찾을 수 없어 실현손익을 계산하지 못했습니다."}), 400
+                return jsonify({"status": "error", "message": f"보유 자산 목록에서 [{name or target_symbol}] 종목을 매칭하지 못했습니다. 입력값을 확인해 주세요."}), 400
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
-    # 신규 매수 / 추가 매수 로직부 (기존 무결점 상태 유지)
+    # 매수 로직부 기동 가드 유지
     if not market or not name: return jsonify({"status": "error", "message": "필수값 누락"}), 400
 
-    symbol = data.get("symbol", "").strip().upper()
-    if not symbol:
+    if not target_symbol:
         if market == "KR":
             url = f"https://ac.stock.naver.com/ac?q={name}&target=stock"
             try:
@@ -215,20 +209,20 @@ def save_stock():
                 items = res.get("items", [])
                 if items and isinstance(items, list) and items[0]:
                     sub = items[0] if isinstance(items[0], list) else items
-                    if sub: symbol = str(sub[0][0]) if isinstance(sub[0], list) else str(sub[0].get("code", ""))
+                    if sub: target_symbol = str(sub[0][0]) if isinstance(sub[0], list) else str(sub[0].get("code", ""))
             except Exception: pass
         elif market == "US":
             api_key = Config.FINNHUB_API_KEY
             url = f"https://finnhub.io/api/v1/search?q={name}&token={api_key}"
             try:
                 res = requests.get(url, timeout=3).json()
-                if "result" in res and res["result"]: symbol = res["result"][0].get("symbol", "")
+                if "result" in res and res["result"]: target_symbol = res["result"][0].get("symbol", "")
             except Exception: pass
 
-    if not symbol: symbol = name.upper()
+    if not target_symbol: target_symbol = name.upper()
 
     try:
-        check_exist = supabase.table("stock_portfolio").select("*").eq("symbol", symbol).execute()
+        check_exist = supabase.table("stock_portfolio").select("*").eq("symbol", target_symbol).execute()
         existing_stock = check_exist.data[0] if check_exist.data else None
     except Exception: existing_stock = None
 
@@ -242,7 +236,7 @@ def save_stock():
             supabase.table("stock_portfolio").update({"quantity": new_qty, "avg_price": new_avg, "name": name}).eq("id", existing_stock["id"]).execute()
             message = f"[{name}] 매수 반영 완료. (평단가: ₩{new_avg})"
         else:
-            supabase.table("stock_portfolio").insert({"market": market, "symbol": symbol, "name": name, "quantity": quantity, "avg_price": avg_price}).execute()
+            supabase.table("stock_portfolio").insert({"market": market, "symbol": target_symbol, "name": name, "quantity": quantity, "avg_price": avg_price}).execute()
             message = f"[{name}] 신규 종목 등록 완료."
 
     return jsonify({"status": "success", "message": message})

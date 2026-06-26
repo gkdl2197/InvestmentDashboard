@@ -10,7 +10,6 @@
         header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #30363d; padding-bottom: 25px; margin-bottom: 30px; }
         
         .dashboard-top { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 35px; }
-        /* 💡 4열에서 지시사항에 맞춰 2열 카드로 격자 축소 정돈 */
         .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
         
         .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); transition: border 0.3s; }
@@ -49,7 +48,7 @@
             position: absolute; top: 85px; left: 0; right: 0; background-color: #1f242c; border: 1px solid #30363d; border-radius: 8px; z-index: 1000;
             max-height: 250px; overflow-y: auto; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .suggestion-item { padding: 15px; cursor: pointer; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; }
+        .suggestion-item { padding: 15px; cursor: pointer; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; color: #ffffff; }
         .suggestion-item:hover { background-color: #388bfd; }
     </style>
 </head>
@@ -149,7 +148,6 @@
             document.getElementById("fx-display").innerText = `환율: ₩ ${toCommas(data.exchange_rate)}`;
             document.getElementById("total-eval").innerText = `₩ ${toCommas(data.total_evaluation)}`;
 
-            // 💡 [매도 정산 가드] 오늘 확정 실현손익 동적 컴포넌트 제어
             const rEl = document.getElementById("realized-profit");
             const oldTag = document.getElementById("realized-rate-tag");
             if (oldTag) oldTag.remove();
@@ -221,25 +219,41 @@
         box.innerHTML = svgContent;
     }
 
+    // 💡 [자동완성 바인딩 완전 복구]
     function initAutocomplete() {
         const nameInput = document.getElementById("input-name");
         const box = document.getElementById("suggestions-box");
         const mkt = document.getElementById("input-market");
 
         nameInput.addEventListener("input", () => {
-            if (nameInput.value.trim().length < 2) { box.style.display="none"; return; }
-            fetch(`/api/stock/search?market=${mkt.value}&query=${encodeURIComponent(nameInput.value.trim())}`)
+            const queryVal = nameInput.value.trim();
+            if (queryVal.length < 2) { box.style.display = "none"; return; }
+            
+            // 파라미터 규격(market, query) 매칭 확인 완료
+            fetch(`/api/stock/search?market=${mkt.value}&query=${encodeURIComponent(queryVal)}`)
                 .then(res => res.json()).then(items => {
                     box.innerHTML = "";
-                    items.forEach(item => {
-                        const d = document.createElement("div"); d.className = "suggestion-item";
-                        d.innerHTML = `${item.name} <span>${item.symbol}</span>`;
-                        d.onclick = () => { nameInput.value = item.name; selectedSymbol = item.symbol; box.style.display="none"; };
-                        box.appendChild(d);
-                    });
-                    box.style.display = items.length ? "block" : "none";
+                    if(items && items.length > 0) {
+                        items.forEach(item => {
+                            const d = document.createElement("div"); d.className = "suggestion-item";
+                            d.innerHTML = `<b>${item.name}</b> <span style="color:#8b949e; font-size:12px;">${item.symbol}</span>`;
+                            d.onclick = (e) => {
+                                e.stopPropagation();
+                                nameInput.value = item.name; 
+                                selectedSymbol = item.symbol; // 글로벌 변수 락인
+                                box.style.display = "none"; 
+                            };
+                            box.appendChild(d);
+                        });
+                        box.style.display = "block";
+                    } else {
+                        box.style.display = "none";
+                    }
                 });
         });
+
+        // 외부 클릭 시 창 닫히는 가드 추가
+        document.addEventListener("click", () => { box.style.display = "none"; });
     }
 
     function submitTrading(action) {
@@ -258,13 +272,22 @@
             headers: { "Content-Type": "application/json" }, 
             body: JSON.stringify(payload) 
         })
-        .then(res => res.json()).then(d => { 
+        .then(res => {
+            if(!res.ok) {
+                return res.json().then(err => { throw new Error(err.message); });
+            }
+            return res.json();
+        })
+        .then(d => { 
             alert(d.message); 
             document.getElementById("input-name").value = "";
             document.getElementById("input-quantity").value = "";
             document.getElementById("input-price").value = "";
             selectedSymbol = "";
             loadDashboardData(); 
+        })
+        .catch(err => {
+            alert("거래 처리 실패: " + err.message);
         });
     }
 </script>
