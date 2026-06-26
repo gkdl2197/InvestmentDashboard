@@ -102,19 +102,21 @@ def search_stock():
     }
     
     if market == "KR":
-        # 💡 [정밀 타격] 네이버 금융 최신 실시간 검색 API 주소로 교체
         url = f"https://stock.naver.com/api/json/search/all/{requests.utils.quote(query)}"
         try:
             res = requests.get(url, headers=headers, timeout=5).json()
-            # 최신 네이버 API의 국내 주식(stock) 결과 영역 파싱 가드
-            search_items = res.get("result", {}).get("stock", [])
-            if search_items and isinstance(search_items, list):
-                for item in search_items:
-                    # 'code'와 'name' 규격 매칭
-                    sym = item.get("code")
-                    nm = item.get("name")
-                    if sym and nm:
-                        results.append({"symbol": str(sym), "name": str(nm)})
+            # 💡 [정밀 타격] 네이버 금융 실시간 트리 검색어 뎁스(searchList -> stockList) 완벽 보정
+            search_list = res.get("result", {}).get("searchList", [])
+            if search_list and isinstance(search_list, list):
+                for section in search_list:
+                    if section.get("searchType") == "STOCK":
+                        stock_items = section.get("stockList", [])
+                        if stock_items and isinstance(stock_items, list):
+                            for item in stock_items:
+                                sym = item.get("code")
+                                nm = item.get("name")
+                                if sym and nm:
+                                    results.append({"symbol": str(sym), "name": str(nm)})
         except Exception as e:
             print(f"❌ 국내 자동검색 API 파싱 실패: {e}")
             
