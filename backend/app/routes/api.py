@@ -96,29 +96,28 @@ def search_stock():
     if not query: return jsonify([])
     
     results = []
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://finance.naver.com'
-    }
     
     if market == "KR":
-        url = f"https://stock.naver.com/api/json/search/all/{requests.utils.quote(query)}"
+        # 💡 [명세 원복] 다음(Daum) 전면 폐기, 기존 네이버 금융 검색 엔진으로 철저하게 원복
+        # 해외 Vercel 서버 IP 차단을 우회하기 위한 모바일 웹 프록시 규격 주소 조준
+        url = f"https://ac.stock.naver.com/ac?q={requests.utils.quote(query)}&target=stock"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G960F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            'Referer': 'https://m.stock.naver.com/'
+        }
         try:
             res = requests.get(url, headers=headers, timeout=5).json()
-            # 💡 [정밀 타격] 네이버 금융 실시간 트리 검색어 뎁스(searchList -> stockList) 완벽 보정
-            search_list = res.get("result", {}).get("searchList", [])
-            if search_list and isinstance(search_list, list):
-                for section in search_list:
-                    if section.get("searchType") == "STOCK":
-                        stock_items = section.get("stockList", [])
-                        if stock_items and isinstance(stock_items, list):
-                            for item in stock_items:
-                                sym = item.get("code")
-                                nm = item.get("name")
-                                if sym and nm:
-                                    results.append({"symbol": str(sym), "name": str(nm)})
+            # 💡 기존 네이버 API의 다차원 배열 리스트 구조([items][0]) 안전 가드 파싱
+            items = res.get("items", [])
+            if items and isinstance(items, list) and items[0]:
+                target_list = items[0]
+                if isinstance(target_list, list):
+                    for item in target_list:
+                        if isinstance(item, list) and len(item) >= 2:
+                            # item[0]: 종목코드 (e.g. "005930"), item[1]: 종목명 (e.g. "삼성전자")
+                            results.append({"symbol": str(item[0]), "name": str(item[1])})
         except Exception as e:
-            print(f"❌ 국내 자동검색 API 파싱 실패: {e}")
+            print(f"❌ 국내 네이버 자동검색 API 파싱 실패: {e}")
             
     elif market == "US":
         api_key = Config.FINNHUB_API_KEY
