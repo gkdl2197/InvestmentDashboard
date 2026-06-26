@@ -2,297 +2,355 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>IVD - 스마트 자산 거래 터미널</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INVESTMENT DASHBOARD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Inter', -apple-system, sans-serif; padding: 30px; margin: 0; }
-        .container { width: 95%; max-width: 1700px; margin: 0 auto; }
-        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #30363d; padding-bottom: 25px; margin-bottom: 30px; }
-        
-        .dashboard-top { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 35px; }
-        .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-        
-        .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); transition: border 0.3s; }
-        .card p { margin: 0; color: #8b949e; font-size: 14px; font-weight: bold; text-transform: uppercase; }
-        .card h2 { margin: 15px 0 0 0; font-size: 38px; color: #ffffff; letter-spacing: -1px; }
-
-        .chart-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .donut-chart { width: 180px; height: 180px; position: relative; border-radius: 50%; }
-
-        table { width: 100%; border-collapse: collapse; background-color: #161b22; border-radius: 12px; overflow: hidden; margin-bottom: 35px; border: 1px solid #30363d; }
-        th, td { padding: 18px 25px; border-bottom: 1px solid #30363d; }
-        th { background-color: #1f242c; color: #8b949e; font-size: 14px; text-transform: uppercase; }
-        
-        .font-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-weight: 600; }
-        .plus { color: #3fb950; }
-        .minus { color: #f85149; }
-        .text-right { text-align: right; }
-
-        .trade-terminal { background: linear-gradient(145deg, #161b22, #0d1117); border: 2px solid #30363d; border-radius: 16px; padding: 35px; }
-        .trade-terminal h3 { margin-top: 0; font-size: 22px; color: #58a6ff; display: flex; align-items: center; gap: 10px; }
-        .terminal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
-        .field { display: flex; flex-direction: column; gap: 10px; position: relative; }
-        label { font-size: 13px; font-weight: bold; color: #8b949e; }
-        input, select { background-color: #010409; border: 1px solid #30363d; border-radius: 8px; color: #ffffff; padding: 14px; font-size: 16px; transition: 0.2s; }
-        input:focus { border-color: #58a6ff; outline: none; }
-
-        .action-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
-        .action-btns button { padding: 18px; border-radius: 10px; font-size: 16px; font-weight: 800; cursor: pointer; border: none; transition: 0.3s; color: white; }
-        .btn-buy { background-color: #238636; }
-        .btn-add { background-color: #2ea44f; }
-        .btn-sell-part { background-color: #da3633; }
-        .btn-sell-all { background-color: #484f58; }
-        .action-btns button:hover { opacity: 0.8; transform: translateY(-2px); }
-
-        .autocomplete-suggestions {
-            position: absolute; top: 85px; left: 0; right: 0; background-color: #1f242c; border: 1px solid #30363d; border-radius: 8px; z-index: 1000;
-            max-height: 250px; overflow-y: auto; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-color: #c9d1d9;
+            --text-white: #f0f6fc;
+            --lime-green: #deff9a;
+            --plus-color: #3fb950;
+            --minus-color: #f85149;
         }
-        .suggestion-item { padding: 15px; cursor: pointer; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; color: #ffffff; }
-        .suggestion-item:hover { background-color: #388bfd; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Urbanist', sans-serif;
+            padding: 30px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-white);
+            letter-spacing: -0.5px;
+        }
+        .header h1 span { color: var(--lime-green); }
+        .fx-rate { font-family: 'JetBrains Mono', monospace; color: #8b949e; }
+
+        /* 💡 상단 카드: 원화 - 달러 - 포트폴리오 비중 레이아웃 */
+        .summary-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .card-title { font-size: 14px; color: #8b949e; margin-bottom: 10px; font-weight: 500; }
+        .card-value { font-size: 28px; font-weight: 700; color: var(--text-white); }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        .dashboard-body {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+        }
+
+        /* 💡 테이블 섹션: 원화 종목 / 달러 종목 분리 */
+        .section-title {
+            font-size: 20px;
+            color: var(--text-white);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title span { font-size: 13px; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-kr { background-color: rgba(255, 123, 114, 0.15); color: #ff7b72; }
+        .badge-us { background-color: rgba(88, 166, 255, 0.15); color: #58a6ff; }
+
+        .table-container {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background-color: rgba(0,0,0,0.15); padding: 14px 16px; color: #8b949e; font-size: 13px; border-bottom: 1px solid var(--border-color); }
+        td { padding: 14px 16px; border-bottom: 1px solid rgba(48, 54, 61, 0.5); color: var(--text-white); font-size: 15px; }
+        .text-right { text-align: right; }
+        .plus { color: var(--plus-color) !important; }
+        .minus { color: var(--minus-color) !important; }
+
+        /* 💡 자산 업데이트 터미널 UI 변경 */
+        .panel-title { font-size: 18px; color: var(--text-white); margin-bottom: 20px; font-weight: 700; }
+        .form-group { margin-bottom: 15px; position: relative; }
+        label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 6px; }
+        input, select {
+            width: 100%; background-color: #0d1117; border: 1px solid var(--border-color);
+            border-radius: 6px; padding: 10px 12px; color: var(--text-white); font-size: 14px;
+        }
+        input:focus, select:focus { border-color: var(--lime-green); outline: none; }
+        .btn-submit {
+            width: 100%; background-color: var(--text-white); color: #000; border: none;
+            border-radius: 6px; padding: 12px; font-weight: 700; cursor: pointer; margin-top: 10px;
+        }
+        .btn-submit:hover { opacity: 0.9; }
+
+        /* 자동완성 팝업 */
+        .autocomplete-box {
+            position: absolute; top: 100%; left: 0; right: 0; background-color: #1f242c;
+            border: 1px solid var(--border-color); border-radius: 6px; z-index: 99; max-height: 200px;
+            overflow-y: auto; display: none; box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+        }
+        .autocomplete-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid rgba(48,54,61,0.3); }
+        .autocomplete-item:hover { background-color: rgba(222, 255, 154, 0.1); color: var(--lime-green); }
+        
+        /* 도넛차트 컨테이너 */
+        #portfolio-chart { width: 100%; height: 260px; margin-top: 15px; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <header>
-        <h1><i class="fa-solid fa-chart-line"></i> IVD SMART TERMINAL</h1>
-        <div style="text-align: right;">
-            <div id="fx-display" style="font-size: 20px; font-weight: 800; color: #58a6ff; margin-bottom: 5px;">환율: ₩ 0</div>
-            <button onclick="loadDashboardData()" style="background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 15px; border-radius: 6px; cursor:pointer;">실시간 동기화</button>
-        </div>
-    </header>
+    <div class="header">
+        <h1>INVESTMENT <span>DASHBOARD</span></h1>
+        <div id="fx-display" class="fx-rate">환율: ₩ --</div>
+    </div>
 
-    <div class="dashboard-top">
-        <div class="summary-grid">
-            <div class="card">
-                <p>총 평가 자산</p>
-                <h2 id="total-eval">₩ 0</h2>
-            </div>
-            <div class="card" style="border-top: 4px solid #58a6ff;">
-            <div class="card-title">미국 주식 총자산 (US)</div>
-            <div id="total-eval-usd" class="card-value font-mono">$ 0.00</div>
-            <span id="total-eval-usd-krw" style="color:#8b949e; font-size:14px; display:block; margin-top:5px;">(₩ 0)</span>
+    <div class="summary-container">
+        <div class="card" style="border-top: 4px solid var(--plus-color);">
+            <div class="card-title">원화 평가 자산 (KRW)</div>
+            <div id="total-eval-krw" class="card-value font-mono">₩ 0</div>
         </div>
-        <div class="chart-card">
-            <p style="margin-bottom: 15px;">포트폴리오 비중</p>
-            <div id="donut-box" class="donut-chart"></div>
-            <div id="chart-legend" style="margin-top: 15px; font-size: 12px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;"></div>
+        <div class="card" style="border-top: 4px solid #58a6ff;">
+            <div class="card-title">달러 평가 자산 (USD)</div>
+            <div id="total-eval-usd" class="card-value font-mono">$ 0.00</div>
+            <span id="total-eval-usd-converted" style="color:#8b949e; font-size:13px; display:block; margin-top:4px;">(₩ 0)</span>
+        </div>
+        <div class="card" style="border-top: 4px solid var(--lime-green);">
+            <div class="card-title">포트폴리오 비중 현황</div>
+            <div id="portfolio-chart"></div>
         </div>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>시장</th>
-                <th>종목명 (티커)</th>
-                <th class="text-right">보유 수량</th>
-                <th class="text-right">평단가</th>
-                <th class="text-right">현재가</th>
-                <th class="text-right">평가금액 (비중)</th>
-                <th class="text-right">수익률 (손익)</th>
-            </tr>
-        </thead>
-        <tbody id="portfolio-table-body"></tbody>
-    </table>
+    <div class="dashboard-body">
+        
+        <div>
+            <div class="section-title">원화 종목 <span class="badge-kr">₩ KRW</span></div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>종목명/코드</th>
+                            <th class="text-right">보유수량</th>
+                            <th class="text-right">평단</th>
+                            <th class="text-right">현재가</th>
+                            <th class="text-right">평가금액</th>
+                            <th class="text-right">수익률</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kr-table-body"></tbody>
+                </table>
+            </div>
 
-    <section class="trade-terminal">
-        <h3><i class="fa-solid fa-terminal"></i> 자산 거래 터미널 (Trade Terminal)</h3>
-        <div class="terminal-grid">
-            <div class="field">
-                <label>시장 구분</label>
-                <select id="input-market">
-                    <option value="KR">KOSPI / KOSDAQ (KR)</option>
-                    <option value="US">NASDAQ / NYSE (US)</option>
-                </select>
-            </div>
-            <div class="field">
-                <label>종목 검색</label>
-                <input type="text" id="input-name" placeholder="종목명 또는 티커" autocomplete="off">
-                <div id="suggestions-box" class="autocomplete-suggestions"></div>
-            </div>
-            <div class="field">
-                <label>거래 수량 (주)</label>
-                <input type="number" id="input-quantity" placeholder="0">
-            </div>
-            <div class="field">
-                <label>거래 체결 단가 (매수/매도)</label>
-                <input type="number" id="input-price" placeholder="₩ / $">
+            <div class="section-title">달러 종목 <span class="badge-us">$ USD</span></div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>종목명/코드</th>
+                            <th class="text-right">보유수량</th>
+                            <th class="text-right">평단</th>
+                            <th class="text-right">현재가</th>
+                            <th class="text-right">평가금액</th>
+                            <th class="text-right">수익률</th>
+                        </tr>
+                    </thead>
+                    <tbody id="us-table-body"></tbody>
+                </table>
             </div>
         </div>
-        <div class="action-btns">
-            <button onclick="submitTrading('new_buy')" class="btn-buy">신규 매수</button>
-            <button onclick="submitTrading('add_buy')" class="btn-add">추가 매수</button>
-            <button onclick="submitTrading('sell_part')" class="btn-sell-part">부분 매도</button>
-            <button onclick="submitTrading('sell_all')" class="btn-sell-all">전량 매도</button>
+
+        <div>
+            <div class="card">
+                <div class="panel-title"><i class="fa-solid fa-pen-to-square"></i> 자산 업데이트</div>
+                <form id="asset-form">
+                    <div class="form-group">
+                        <label>시장 구분</label>
+                        <select id="asset-market">
+                            <option value="KR">한국 시장 (KRW)</option>
+                            <option value="US">미국 시장 (USD)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>종목 검색</label>
+                        <input type="text" id="asset-query" placeholder="종목명 또는 티커 입력..." autocomplete="off">
+                        <div id="search-results" class="autocomplete-box"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>선택된 심볼</label>
+                        <input type="text" id="asset-symbol" readonly style="background-color:rgba(0,0,0,0.2); color:#8b949e;">
+                        <input type="hidden" id="asset-name">
+                    </div>
+                    <div class="form-group">
+                        <label>보유 수량</label>
+                        <input type="number" id="asset-qty" step="any" placeholder="0.0">
+                    </div>
+                    <div class="form-group">
+                        <label>매수 평단가</label>
+                        <input type="number" id="asset-price" step="any" placeholder="0.0">
+                    </div>
+                    <button type="submit" class="btn-submit">완료 및 최신화</button>
+                </form>
+            </div>
         </div>
-    </section>
-</div>
+    </div>
 
-<script>
-    let selectedSymbol = "";
-    const COLORS = ['#58a6ff', '#3fb950', '#f85149', '#d29922', '#bc8cff', '#1f6feb', '#238636'];
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script>
+        function toCommas(v) {
+            if(v === undefined || v === null) return "0";
+            return v.toString().replace(/\B(?=(\d{3})+(?!\n))/g, ",");
+        }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        loadDashboardData();
-        initAutocomplete(); // 💡 자동완성 감시 엔진 시동
-    });
+        let chartInstance = null;
+        function drawChart(chartData) {
+            const options = {
+                series: chartData.map(c => c.weight),
+                labels: chartData.map(c => c.name),
+                chart: { type: 'donut', height: 260 },
+                theme: { palette: 'palette1' },
+                stroke: { show: false },
+                legend: { position: 'bottom', labels: { colors: '#c9d1d9' } },
+                dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + "%" }
+            };
+            if(chartInstance) chartInstance.destroy();
+            chartInstance = new ApexCharts(document.querySelector("#portfolio-chart"), options);
+            chartInstance.render();
+        }
 
-    function toCommas(val) {
-        if (val === undefined || val === null || isNaN(val)) return "0";
-        return Number(val).toLocaleString();
-    }
+        // 💡 실시간 데이터 투트랙 매핑 엔진
+        function loadDashboardData() {
+            fetch("/api/portfolio").then(res => res.json()).then(data => {
+                document.getElementById("fx-display").innerText = `환율: ₩ ${toCommas(data.exchange_rate)}`;
+                document.getElementById("total-eval-krw").innerText = `₩ ${toCommas(data.total_evaluation_krw)}`;
+                document.getElementById("total-eval-usd").innerText = `$ ${data.total_evaluation_usd.toFixed(2)}`;
+                
+                const usdToKrw = Math.round(data.total_evaluation_usd * data.exchange_rate);
+                document.getElementById("total-eval-usd-converted").innerText = `(₩ ${toCommas(usdToKrw)})`;
 
-    function loadDashboardData() {
-        fetch("/api/portfolio").then(res => res.json()).then(data => {
-            // 💡 상단 이원화 자산 카드 렌더링
-            document.getElementById("fx-display").innerText = `환율: ₩ ${toCommas(data.exchange_rate)}`;
-            document.getElementById("total-eval").innerText = `₩ ${toCommas(data.total_evaluation_krw)}`;
-            
-            // 미국 주식 순수 달러 총자산 및 하단 괄호 원화 자동 환산 정보 매핑
-            document.getElementById("total-eval-usd").innerText = `$ ${data.total_evaluation_usd.toFixed(2)}`;
-            const totalUsdToKrw = Math.round(data.total_evaluation_usd * data.exchange_rate);
-            document.getElementById("total-eval-usd-krw").innerText = `(₩ ${toCommas(totalUsdToKrw)})`;
+                const krTbody = document.getElementById("kr-table-body");
+                const usTbody = document.getElementById("us-table-body");
+                krTbody.innerHTML = ""; usTbody.innerHTML = "";
+                
+                let chartData = [];
+                const fx = data.exchange_rate || 1350.0;
 
-            const tbody = document.getElementById("portfolio-table-body");
-            tbody.innerHTML = "";
-            let chartData = [];
-            const fx = data.exchange_rate || 1350.0;
-
-            ["KR", "US"].forEach(m => {
-                if (data.portfolio && data.portfolio[m]) {
-                    data.portfolio[m].forEach(s => {
+                // 🇰🇷 한국 자산 렌더링
+                if (data.portfolio && data.portfolio["KR"]) {
+                    data.portfolio["KR"].forEach(s => {
+                        chartData.push({ name: s.name, weight: s.weight_percent });
                         const tr = document.createElement("tr");
                         const isPlus = s.total_profit >= 0;
-                        chartData.push({ name: s.name, weight: s.weight_percent });
-
-                        const sign = s.market === 'US' ? '$ ' : '₩ ';
-                        const formattedAvg = s.market === 'US' ? s.avg_price.toFixed(2) : toCommas(s.avg_price);
-                        const formattedCur = s.market === 'US' ? s.current_price.toFixed(2) : toCommas(s.current_price);
-                        
-                        let evalDisplay = `<b>${sign}${toCommas(s.eval_amount)}</b>`;
-                        let profitDisplay = `<span>${isPlus?'+':''}${sign}${toCommas(s.total_profit)}</span>`;
-                        
-                        if (s.market === 'US') {
-                            const evalKrw = Math.round(s.eval_amount * fx);
-                            const profitKrw = Math.round(s.total_profit * fx);
-                            evalDisplay += `<br><span style="color:#8b949e; font-size:11px;">(₩ ${toCommas(evalKrw)})</span>`;
-                            profitDisplay += `<br><span style="font-size:11px; color:${isPlus?'#3fb950':'#f85149'}">(₩ ${toCommas(profitKrw)})</span>`;
-                        }
-
                         tr.innerHTML = `
-                            <td><b style="color:${s.market==='US'?'#58a6ff':'#ff7b72'}">${s.market}</b></td>
-                            <td><b style="color:#ffffff">${s.name}</b><br><span style="color:#8b949e; font-size:12px;">${s.symbol}</span></td>
+                            <td><b>${s.name}</b><br><span style="color:#8b949e; font-size:12px;">${s.symbol}</span></td>
                             <td class="text-right font-mono">${s.quantity}</td>
-                            <td class="text-right font-mono">${sign}${formattedAvg}</td>
-                            <td class="text-right font-mono" style="color:#ffffff">${sign}${formattedCur}</td>
-                            <td class="text-right font-mono">${evalDisplay}<br><span style="color:#8b949e; font-size:11px;">(${s.weight_percent}%)</span></td>
-                            <td class="text-right font-mono ${isPlus?'plus':'minus'}"><b>${s.total_profit_percent}%</b><br>${profitDisplay}</td>
+                            <td class="text-right font-mono">₩ ${toCommas(s.avg_price)}</td>
+                            <td class="text-right font-mono">₩ ${toCommas(s.current_price)}</td>
+                            <td class="text-right font-mono"><b>₩ ${toCommas(s.eval_amount)}</b><br><span style="color:#8b949e; font-size:11px;">(${s.weight_percent}%)</span></td>
+                            <td class="text-right font-mono ${isPlus?'plus':'minus'}"><b>${s.total_profit_percent}%</b><br><span>${isPlus?'+':''}₩ ${toCommas(s.total_profit)}</span></td>
                         `;
-                        tbody.appendChild(tr);
+                        krTbody.appendChild(tr);
                     });
                 }
+
+                // 🇺🇸 미국 자산 렌더링 (순수 달러 베이스 + 괄호 환산 정보)
+                if (data.portfolio && data.portfolio["US"]) {
+                    data.portfolio["US"].forEach(s => {
+                        chartData.push({ name: s.name, weight: s.weight_percent });
+                        const tr = document.createElement("tr");
+                        const isPlus = s.total_profit >= 0;
+                        const evalKrw = Math.round(s.eval_amount * fx);
+                        const profitKrw = Math.round(s.total_profit * fx);
+
+                        tr.innerHTML = `
+                            <td><b>${s.name}</b><br><span style="color:#8b949e; font-size:12px;">${s.symbol}</span></td>
+                            <td class="text-right font-mono">${s.quantity}</td>
+                            <td class="text-right font-mono">$ ${s.avg_price.toFixed(2)}</td>
+                            <td class="text-right font-mono">$ ${s.current_price.toFixed(2)}</td>
+                            <td class="text-right font-mono"><b>$ ${toCommas(s.eval_amount)}</b><br><span style="color:#8b949e; font-size:11px;">(₩ ${toCommas(evalKrw)})</span></td>
+                            <td class="text-right font-mono ${isPlus?'plus':'minus'}"><b>${s.total_profit_percent}%</b><br><span>${isPlus?'+':''}$ ${toCommas(s.total_profit)}</span><br><span style="font-size:11px; color:${isPlus?'#3fb950':'#f85149'}">(₩ ${toCommas(profitKrw)})</span></td>
+                        `;
+                        usTbody.appendChild(tr);
+                    });
+                }
+                drawChart(chartData);
             });
-            drawChart(chartData);
-        });
-    }
+        }
 
-    function drawChart(items) {
-        const box = document.getElementById("donut-box");
-        const legend = document.getElementById("chart-legend");
-        box.innerHTML = ""; legend.innerHTML = "";
-        if (!items || items.length === 0) return;
+        // Supabase 연동형 주식 검색창 제어 스크립트
+        const qInput = document.getElementById("asset-query");
+        const rBox = document.getElementById("search-results");
 
-        let cumulativePercent = 0;
-        let svgContent = `<svg viewBox="0 0 32 32" style="transform: rotate(-90deg); border-radius: 50%;"><circle r="16" cx="16" cy="16" fill="#30363d" />`;
-        
-        items.forEach((item, i) => {
-            const color = COLORS[i % COLORS.length];
-            const dashArray = `${item.weight} ${100 - item.weight}`;
-            const dashOffset = -cumulativePercent;
-            svgContent += `<circle r="16" cx="16" cy="16" fill="transparent" stroke="${color}" stroke-width="32" stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}" />`;
-            cumulativePercent += item.weight;
-            legend.innerHTML += `<span><i class="fa-solid fa-circle" style="color:${color}"></i> ${item.name} (${item.weight}%)</span>`;
-        });
-        svgContent += `<circle r="11" cx="16" cy="16" fill="#161b22" /></svg>`;
-        box.innerHTML = svgContent;
-    }
+        qInput.addEventListener("input", function() {
+            const m = document.getElementById("asset-market").value;
+            const q = this.value.trim();
+            if(!q) { rBox.style.display = "none"; return; }
 
-    // 💡 [완벽 보수] 타이핑 인식 및 마우스 클릭 드롭다운 매핑 코어 엔진
-    function initAutocomplete() {
-        const nameInput = document.getElementById("input-name");
-        const box = document.getElementById("suggestions-box");
-        const mktSelect = document.getElementById("input-market"); // ID 정밀 매칭 확인
-
-        nameInput.addEventListener("input", () => {
-            const queryVal = nameInput.value.trim();
-            if (queryVal.length < 2) { box.innerHTML = ""; box.style.display = "none"; return; }
-            
-            // 명세된 백엔드 API 라우트 규격 완벽 조준
-            fetch(`/api/stock/search?market=${mktSelect.value}&query=${encodeURIComponent(queryVal)}`)
-                .then(res => res.json())
-                .then(items => {
-                    box.innerHTML = "";
-                    if (items && items.length > 0) {
-                        items.forEach(item => {
-                            const d = document.createElement("div"); 
-                            d.className = "suggestion-item";
-                            d.innerHTML = `<b>${item.name}</b> <span style="color:#58a6ff; font-size:12px; font-family:monospace; float:right;">${item.symbol}</span>`;
-                            
-                            // mousedown 이벤트를 사용하여 blur 이벤트보다 먼저 실행되도록 가드 처리
-                            d.addEventListener("mousedown", (e) => {
-                                e.preventDefault(); // 이벤트 전파 컷
-                                nameInput.value = item.name; 
-                                selectedSymbol = item.symbol; // 글로벌 데이터에 정식 종목코드 주입
-                                box.innerHTML = "";
-                                box.style.display = "none"; 
-                            });
-                            box.appendChild(d);
+            fetch(`/api/stock/search?market=${m}&query=${encodeURIComponent(q)}`)
+                .then(res => res.json()).then(items => {
+                    if(!items || items.length === 0) { rBox.style.display = "none"; return; }
+                    rBox.innerHTML = "";
+                    items.forEach(item => {
+                        const div = document.createElement("div");
+                        div.className = "autocomplete-item";
+                        div.innerHTML = `<b>${item.symbol}</b> - ${item.name}`;
+                        div.addEventListener("click", () => {
+                            document.getElementById("asset-symbol").value = item.symbol;
+                            document.getElementById("asset-name").value = item.name;
+                            qInput.value = item.name;
+                            rBox.style.display = "none";
                         });
-                        box.style.display = "block";
-                    } else {
-                        box.style.display = "none";
-                    }
-                }).catch(err => console.error("자동완성 파이프라인 다운:", err));
+                        rBox.appendChild(div);
+                    });
+                    rBox.style.display = "block";
+                });
         });
 
-        // 인풋창 포커스 아웃(blur) 시 목록 숨김 가드 (mousedown 가드와 연동)
-        nameInput.addEventListener("blur", () => {
-            setTimeout(() => { box.style.display = "none"; }, 200);
-        });
-    }
+        // 자산 업데이트 제출 처리
+        document.getElementById("asset-form").addEventListener("submit", function(e) {
+            e.preventDefault();
+            const payload = {
+                market: document.getElementById("asset-market").value,
+                symbol: document.getElementById("asset-symbol").value,
+                name: document.getElementById("asset-name").value,
+                quantity: parseFloat(document.getElementById("asset-qty").value || 0),
+                avg_price: parseFloat(document.getElementById("asset-price").value || 0)
+            };
 
-    function submitTrading(action) {
-        const payload = {
-            action, 
-            market: document.getElementById("input-market").value,
-            name: document.getElementById("input-name").value.trim(),
-            symbol: selectedSymbol, // 💡 자동완성에서 잡은 코드가 그대로 주입됨
-            quantity: parseFloat(document.getElementById("input-quantity").value || 0),
-            avg_price: parseFloat(document.getElementById("input-price").value || 0)
-        };
-        if (!payload.name) return alert("종목을 선택해 주세요.");
-        if (action !== 'sell_all' && payload.quantity <= 0) return alert("수량을 정확히 입력해 주세요.");
-
-        fetch("/api/portfolio/save", { 
-            method: "POST", 
-            headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify(payload) 
-        })
-        .then(res => {
-            if(!res.ok) return res.json().then(err => { throw new Error(err.message); });
-            return res.json();
-        })
-        .then(d => { 
-            alert(d.message); 
-            document.getElementById("input-name").value = "";
-            document.getElementById("input-quantity").value = "";
-            document.getElementById("input-price").value = "";
-            selectedSymbol = "";
-            loadDashboardData(); 
-        })
-        .catch(err => {
-            alert("거래 처리 실패: " + err.message);
+            fetch("/api/portfolio/save", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }).then(res => res.json()).then(resData => {
+                if(resData.status === "success") {
+                    this.reset();
+                    loadDashboardData();
+                } else { alert("저장 실패: " + resData.message); }
+            });
         });
-    }
-</script>
+
+        document.addEventListener("DOMContentLoaded", loadDashboardData);
+    </script>
+</body>
+</html>
