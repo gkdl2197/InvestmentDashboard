@@ -42,7 +42,6 @@
         .header h1 span { color: var(--lime-green); }
         .fx-rate { font-family: 'JetBrains Mono', monospace; color: #8b949e; font-size: 14px; }
 
-        /* 💡 1번 요구사항: 카드 공란 축소 및 최적화 */
         .summary-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -53,7 +52,7 @@
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 10px;
-            padding: 14px 18px; /* 패딩 축소로 공란 제거 */
+            padding: 14px 18px;
         }
         .card-title { font-size: 13px; color: #8b949e; margin-bottom: 4px; font-weight: 500; }
         .card-value { font-size: 24px; font-weight: 700; color: var(--text-white); }
@@ -92,7 +91,6 @@
         .plus { color: var(--plus-color) !important; }
         .minus { color: var(--minus-color) !important; }
 
-        /* 💡 2번 요구사항: 매수/매도 분리 스위치 스타일 */
         .panel-title { font-size: 16px; color: var(--text-white); margin-bottom: 15px; font-weight: 700; }
         .tx-toggle-container {
             display: grid;
@@ -125,7 +123,7 @@
         .autocomplete-box {
             position: absolute; top: 100%; left: 0; right: 0; background-color: #1f242c;
             border: 1px solid var(--border-color); border-radius: 6px; z-index: 99; max-height: 180px;
-            overflow-y: auto; display: none;
+            overflow-y: auto;
         }
         .autocomplete-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid rgba(48,54,61,0.3); font-size: 13px; }
         .autocomplete-item:hover { background-color: rgba(222, 255, 154, 0.1); color: var(--lime-green); }
@@ -227,9 +225,10 @@
                         <label id="label-qty">매수 수량</label>
                         <input type="number" id="asset-qty" step="any" placeholder="0.0" required>
                     </div>
+                    
                     <div class="form-group" id="price-form-group">
-                        <label id="label-price">매수 평단가</label>
-                        <input type="number" id="asset-price" step="any" placeholder="0.0">
+                        <label id="label-price">매수 단가</label>
+                        <input type="number" id="asset-price" step="any" placeholder="0.0" required>
                     </div>
                     <button type="submit" id="submit-btn" class="btn-submit btn-buy-mode">매수 반영하기</button>
                 </form>
@@ -241,7 +240,7 @@
     <script>
         let currentTxType = "BUY";
 
-        // 💡 2번 요구사항: 거래 타입(매수/매도) 스위칭 제어기
+        // 💡 v1.1.1 매수/매도 단가 전환 토글 컨트롤러
         function setTxType(type) {
             currentTxType = type;
             document.getElementById("asset-tx-type").value = type;
@@ -249,26 +248,22 @@
             const buyBtn = document.getElementById("tx-buy-btn");
             const sellBtn = document.getElementById("tx-sell-btn");
             const submitBtn = document.getElementById("submit-btn");
-            const priceGroup = document.getElementById("price-form-group");
+            const labelPrice = document.getElementById("label-price");
 
             if (type === "BUY") {
                 buyBtn.className = "tx-btn active-buy";
                 sellBtn.className = "tx-btn";
                 document.getElementById("label-qty").innerText = "매수 수량";
-                document.getElementById("label-price").innerText = "매수 평단가";
+                labelPrice.innerText = "매수 단가"; // '매수 평단가' -> '매수 단가' 교정
                 submitBtn.innerText = "매수 반영하기";
                 submitBtn.className = "btn-submit btn-buy-mode";
-                priceGroup.style.display = "block";
-                document.getElementById("asset-price").required = true;
             } else {
                 buyBtn.className = "tx-btn";
                 sellBtn.className = "tx-btn active-sell";
                 document.getElementById("label-qty").innerText = "매도 수량";
+                labelPrice.innerText = "매도 단가"; // 💡 매도 시 '매도 단가' 입력 필드 활성화
                 submitBtn.innerText = "매도 차감하기";
                 submitBtn.className = "btn-submit btn-sell-mode";
-                // 분할 매도시에는 평단가가 변하지 않으므로 단가 입력창을 가려 혼선을 방지합니다.
-                priceGroup.style.display = "none";
-                document.getElementById("asset-price").required = false;
             }
         }
 
@@ -306,7 +301,6 @@
                 document.getElementById("total-eval-krw").innerText = `₩ ${toCommas(data.total_evaluation_krw)}`;
                 document.getElementById("total-eval-usd").innerText = `$ ${data.total_evaluation_usd.toFixed(2)}`;
                 
-                // 💡 상단 카드 총 수익률 색상 및 기호 바인딩
                 const rKrw = document.getElementById("rate-krw");
                 rKrw.innerText = `${data.profit_rate_krw >= 0 ? '+' : ''}${data.profit_rate_krw}%`;
                 rKrw.className = `card-rate-tag ${data.profit_rate_krw >= 0 ? 'plus' : 'minus'}`;
@@ -410,7 +404,7 @@
             }).then(res => res.json()).then(resData => {
                 if(resData.status === "success") {
                     this.reset();
-                    setTxType("BUY"); // 입력 완료 후 매수 모드로 리셋
+                    setTxType("BUY");
                     clearSearch();
                     loadDashboardData();
                 } else { alert("반영 실패: " + resData.message); }
