@@ -145,6 +145,7 @@
 
     function loadDashboardData() {
         fetch("/api/portfolio").then(res => res.json()).then(data => {
+            // 💡 환율 및 총 평가자산은 상시 원화(₩)로 자동 계산 및 표출 유지
             document.getElementById("fx-display").innerText = `환율: ₩ ${toCommas(data.exchange_rate)}`;
             document.getElementById("total-eval").innerText = `₩ ${toCommas(data.total_evaluation)}`;
 
@@ -173,22 +174,39 @@
             const tbody = document.getElementById("portfolio-table-body");
             tbody.innerHTML = "";
             let chartData = [];
+            const fx = data.exchange_rate || 1350.0; // 💡 실시간 변동 환율 캐싱
 
             ["KR", "US"].forEach(m => {
                 if (data.portfolio && data.portfolio[m]) {
                     data.portfolio[m].forEach(s => {
                         const tr = document.createElement("tr");
-                        const isPlus = s.total_profit_krw >= 0;
+                        const isPlus = s.total_profit >= 0;
                         chartData.push({ name: s.name, weight: s.weight_percent });
+
+                        // 💡 [자산 이원화 가드 & 원화 환산 동시 렌더링 엔진]
+                        const sign = s.market === 'US' ? '$ ' : '₩ ';
+                        const formattedAvg = s.market === 'US' ? s.avg_price.toFixed(2) : toCommas(s.avg_price);
+                        const formattedCur = s.market === 'US' ? s.current_price.toFixed(2) : toCommas(s.current_price);
+                        
+                        // 미국 주식일 경우 달러 표기 밑에 (₩ 원화 환산) 결과를 실시간으로 계산하여 추가 배정
+                        let evalDisplay = `<b>${sign}${toCommas(s.eval_amount)}</b>`;
+                        let profitDisplay = `<span>${isPlus?'+':''}${sign}${toCommas(s.total_profit)}</span>`;
+                        
+                        if (s.market === 'US') {
+                            const evalKrw = Math.round(s.eval_amount * fx);
+                            const profitKrw = Math.round(s.total_profit * fx);
+                            evalDisplay += `<br><span style="color:#8b949e; font-size:11px;">(₩ ${toCommas(evalKrw)})</span>`;
+                            profitDisplay += `<br><span style="font-size:11px; color:${isPlus?'#3fb950':'#f85149'}">(₩ ${toCommas(profitKrw)})</span>`;
+                        }
 
                         tr.innerHTML = `
                             <td><b style="color:${s.market==='US'?'#58a6ff':'#ff7b72'}">${s.market}</b></td>
                             <td><b style="color:#ffffff">${s.name}</b><br><span style="color:#8b949e; font-size:12px;">${s.symbol}</span></td>
                             <td class="text-right font-mono">${s.quantity}</td>
-                            <td class="text-right font-mono">₩ ${toCommas(s.avg_price)}</td>
-                            <td class="text-right font-mono" style="color:#ffffff">₩ ${toCommas(s.current_price)}</td>
-                            <td class="text-right font-mono"><b>₩ ${toCommas(s.eval_amount_krw)}</b><br><span style="color:#8b949e; font-size:11px;">(${s.weight_percent}%)</span></td>
-                            <td class="text-right font-mono ${isPlus?'plus':'minus'}"><b>${s.total_profit_percent}%</b><br><span>${isPlus?'+':''}${toCommas(s.total_profit_krw)}</span></td>
+                            <td class="text-right font-mono">${sign}${formattedAvg}</td>
+                            <td class="text-right font-mono" style="color:#ffffff">${sign}${formattedCur}</td>
+                            <td class="text-right font-mono">${evalDisplay}<br><span style="color:#8b949e; font-size:11px;">(${s.weight_percent}%)</span></td>
+                            <td class="text-right font-mono ${isPlus?'plus':'minus'}"><b>${s.total_profit_percent}%</b><br>${profitDisplay}</td>
                         `;
                         tbody.appendChild(tr);
                     });
