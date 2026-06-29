@@ -225,7 +225,8 @@ def get_real_estate():
         total_eval_re, total_debt_re, net_lease_cash = 0, 0, 0 
 
         for item in db_estates:
-            is_watch = item.get("is_watchlist", False) or str(item.get("is_watchlist")).lower() == "true"
+            raw = item.get("is_watchlist")
+            is_watch = raw is True or str(raw).lower() == "true"
             h_type = item.get("holding_type", "OWN")
             name = item.get("name")
             
@@ -287,7 +288,7 @@ def save_real_estate():
         name = data.get("name")
         payload = {
             "name": name, "estate_type": data.get("estate_type"),
-            "holding_type": data.get("holding_type", "OWN"),
+            "holding_type": "WATCHLIST" if bool(data.get("is_watchlist")) else data.get("holding_type", "OWN"),
             "purchase_price": float(data.get("purchase_price") or 0),
             "current_price": float(data.get("current_price") or 0),
             "debt": float(data.get("debt") or 0),

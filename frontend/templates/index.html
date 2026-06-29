@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&family=Noto+Sans+KR:wght=300;400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
         body {
             font-family: 'Inter', 'Noto Sans KR', sans-serif;
         }
@@ -110,7 +110,6 @@
                         <i class="fa-solid fa-plus-minus text-indigo-500"></i>
                         <span>포트폴리오 자산 변경</span>
                     </h3>
-                    
                     <div class="space-y-4">
                         <div>
                             <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">시장 구분</label>
@@ -219,7 +218,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">매물명/거주지 명칭</label>
-                        <input type="text" id="re-name" placeholder="예: 판교 푸르지오 전세" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
+                        <input type="text" id="re-name" placeholder="예: 은마아파트 84㎡" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">자산 유형</label>
@@ -236,9 +235,16 @@
                             <option value="TENANT_LEASE">전세 거주 (세입자 임차)</option>
                             <option value="LEASE">갭투자 / 전세 끼고 매수 (집주인)</option>
                             <option value="MONTHLY">월세 내는 임대수익 목적 (집주인)</option>
-                            <option value="WATCHLIST">🔔 [시세 알림] 네이버 실매물 추적 관찰</option>
                         </select>
                     </div>
+                    <div class="flex items-center space-x-3 bg-slate-50 border border-slate-200 rounded-xl px-4 h-[46px] mt-[22px]">
+                        <input type="checkbox" id="re-is-watchlist" onchange="toggleWatchlistInputs()" class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                        <label for="re-is-watchlist" class="text-xs font-bold text-indigo-700 cursor-pointer flex items-center space-x-1">
+                            <i class="fa-solid fa-bell text-amber-500 animate-pulse"></i>
+                            <span>관심부동산 지정 (네이버 실매물 알림)</span>
+                        </label>
+                    </div>
+                    
                     <div id="re-pur-price-wrapper">
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">최초 매입 금액 (원)</label>
                         <input type="number" id="re-pur-price" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
@@ -252,16 +258,16 @@
                         <input type="number" id="re-debt" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
                     <div id="re-deposit-wrapper">
-                        <label class="block text-xs font-semibold text-slate-500 mb-1.5" id="re-deposit-label">내가 낸 전세 보증금 (원)</label>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5" id="re-deposit-label">보증금 / 임대금액 (원)</label>
                         <input type="number" id="re-deposit" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div id="re-target-wrapper" class="hidden md:col-span-2">
+                        <label class="block text-xs font-bold text-indigo-600 mb-1.5">🔔 네이버 부동산 실매물 가격 알림 목표가 (원)</label>
+                        <input type="number" id="re-target-price" placeholder="네이버 중개업소 실매물이 이 가격 이하로 등록되면 즉시 알림 신호" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white">
                     </div>
                     <div id="re-rent-wrapper">
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">월세 수입 (원/월)</label>
                         <input type="number" id="re-rent" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
-                    </div>
-                    <div id="re-target-wrapper" class="hidden">
-                        <label class="block text-xs font-semibold text-indigo-600 mb-1.5">🔔 하락 시 알림 받을 목표가 (원)</label>
-                        <input type="number" id="re-target-price" placeholder="목표가 이하로 내려가면 신호 발생" class="w-full bg-indigo-50/50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-900 focus:outline-none">
                     </div>
                     <div class="flex items-end justify-end md:col-span-4 pt-2">
                         <button onclick="submitRealEstate()" class="w-64 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm">부동산 정보 등록</button>
@@ -332,7 +338,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             fetchPortfolioData();
             fetchRealEstateData();
-            toggleReInputs();
             setInterval(() => {
                 if(currentMainTab === 'STOCK') fetchPortfolioData();
                 if(currentMainTab === 'RE') fetchRealEstateData();
@@ -345,25 +350,52 @@
             const reTabBtn = document.getElementById('main-tab-re');
             const stockSection = document.getElementById('section-stock');
             const reSection = document.getElementById('section-re');
-            const mainTitle = document.getElementById('dashboard-title');
-            const mainSubtitle = document.getElementById('dashboard-subtitle');
 
             if (tab === 'STOCK') {
                 stockTabBtn.className = "h-10 px-4 border-b-2 border-indigo-600 text-indigo-600 font-bold text-sm transition";
                 reTabBtn.className = "h-10 px-4 border-b-2 border-transparent text-slate-400 hover:text-slate-600 font-medium text-sm transition";
                 stockSection.classList.remove('hidden');
                 reSection.classList.add('hidden');
-                mainTitle.innerText = "자산 현황 대시보드";
-                mainSubtitle.innerText = "실시간 환율 및 국내외 주식 포트폴리오를 통합 관리합니다.";
                 fetchPortfolioData();
             } else {
                 reTabBtn.className = "h-10 px-4 border-b-2 border-indigo-600 text-indigo-600 font-bold text-sm transition";
                 stockTabBtn.className = "h-10 px-4 border-b-2 border-transparent text-slate-400 hover:text-slate-600 font-medium text-sm transition";
                 reSection.classList.remove('hidden');
                 stockSection.classList.add('hidden');
-                mainTitle.innerText = "부동산 포트폴리오 매니저";
-                mainSubtitle.innerText = "실물 부동산 자산, 대출 현황 및 임대 현황을 통합 트래킹합니다.";
                 fetchRealEstateData();
+            }
+        }
+
+        function toggleWatchlistInputs() {
+            const isWatchlist = document.getElementById('re-is-watchlist').checked;
+            const typeSelect = document.getElementById('re-type');       // ✅ 추가
+            const purWrapper = document.getElementById('re-pur-price-wrapper');
+            const currWrapper = document.getElementById('re-curr-price-wrapper');
+            const depositWrapper = document.getElementById('re-deposit-wrapper');
+            const debtWrapper = document.getElementById('re-debt-wrapper');
+            const rentWrapper = document.getElementById('re-rent-wrapper');
+            const targetWrapper = document.getElementById('re-target-wrapper');
+            const holdingSelect = document.getElementById('re-holding');
+
+            if (isWatchlist) {
+                typeSelect.disabled = true;      // ✅ 추가
+                purWrapper.classList.add('hidden');
+                currWrapper.classList.add('hidden');
+                depositWrapper.classList.add('hidden');
+                debtWrapper.classList.add('hidden');
+                rentWrapper.classList.add('hidden');
+                targetWrapper.classList.remove('hidden');
+                holdingSelect.disabled = true;
+            } else {
+                typeSelect.disabled = false;     // ✅ 추가
+                holdingSelect.disabled = false;
+                purWrapper.classList.remove('hidden');
+                currWrapper.classList.remove('hidden');
+                depositWrapper.classList.remove('hidden');
+                debtWrapper.classList.remove('hidden');
+                rentWrapper.classList.remove('hidden');
+                targetWrapper.classList.add('hidden');
+                toggleReInputs();
             }
         }
 
@@ -376,22 +408,15 @@
             const rentWrapper = document.getElementById('re-rent-wrapper');
             const depositWrapper = document.getElementById('re-deposit-wrapper');
             const debtWrapper = document.getElementById('re-debt-wrapper');
-            const targetWrapper = document.getElementById('re-target-wrapper');
 
-            if (holding === 'WATCHLIST') {
-                purWrapper.classList.add('hidden');
-                currWrapper.classList.add('hidden');
-                rentWrapper.classList.add('hidden');
-                depositWrapper.classList.add('hidden');
-                debtWrapper.classList.add('hidden');
-                targetWrapper.classList.remove('hidden');
-            } else if (holding === 'TENANT_LEASE') {
+            if (document.getElementById('re-is-watchlist').checked) return;
+
+            if (holding === 'TENANT_LEASE') {
                 purWrapper.classList.add('hidden');
                 currWrapper.classList.add('hidden');
                 rentWrapper.classList.add('hidden');
                 depositWrapper.classList.remove('hidden');
                 debtWrapper.classList.remove('hidden');
-                targetWrapper.classList.add('hidden');
                 depositLabel.innerText = "내가 낸 전세 보증금 (원)";
                 debtLabel.innerText = "전세 자금 대출금 (원)";
             } else {
@@ -400,14 +425,13 @@
                 rentWrapper.classList.remove('hidden');
                 depositWrapper.classList.remove('hidden');
                 debtWrapper.classList.remove('hidden');
-                targetWrapper.classList.add('hidden');
                 depositLabel.innerText = "세입자에게 받은 보증금 (원)";
                 debtLabel.innerText = "금융권 대출금 (원)";
             }
         }
 
         // ==========================================
-        // [ 무생략 복구 ] 주식 전용 프론트엔드 액션 엔진
+        // [SCRIPT 1] 주식 엔진 파트
         // ==========================================
         function setMarket(market) {
             currentMarket = market;
@@ -418,12 +442,12 @@
             document.getElementById('stock-search-input').value = '';
 
             if (market === 'KR') {
-                krBtn.className = "py-2 px-4 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-medium transition";
-                usBtn.className = "py-2 px-4 bg-slate-50 text-slate-400 rounded-xl text-sm font-medium transition";
+                krBtn.className = "py-2.5 px-4 bg-indigo-50 text-indigo-600 border border-indigo-200 font-medium rounded-xl text-sm text-center transition";
+                usBtn.className = "py-2.5 px-4 bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 font-medium rounded-xl text-sm text-center transition";
                 priceLabel.innerText = "체결 단가 (원)";
             } else {
-                usBtn.className = "py-2 px-4 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-medium transition";
-                krBtn.className = "py-2 px-4 bg-slate-50 text-slate-400 rounded-xl text-sm font-medium transition";
+                usBtn.className = "py-2.5 px-4 bg-indigo-50 text-indigo-600 border border-indigo-200 font-medium rounded-xl text-sm text-center transition";
+                krBtn.className = "py-2.5 px-4 bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 font-medium rounded-xl text-sm text-center transition";
                 priceLabel.innerText = "체결 단가 ($)";
             }
         }
@@ -471,20 +495,18 @@
                         tx_type: txType, quantity: qty, avg_price: price
                     })
                 });
-                const result = await res.json();
-                if (result.status === 'success') {
-                    alert(`${txType === 'BUY' ? '매수' : '매도'} 등록 완료`);
+                if ((await res.json()).status === 'success') {
                     document.getElementById('tx-quantity').value = '';
                     document.getElementById('tx-price').value = '';
                     document.getElementById('stock-search-input').value = '';
                     selectedStock = null;
                     fetchPortfolioData();
-                } else { alert(`실패: ${result.message}`); }
-            } catch (e) { alert("통신 장애 발생"); }
+                }
+            } catch (e) { alert("통신 장애"); }
         }
 
         async function deleteStock(symbol, name) {
-            if (!confirm(`[경고] 정말로 ${name} (${symbol}) 종목을 포트폴리오 명세에서 영구 삭제하시겠습니까?`)) return;
+            if (!confirm(`[경고] 정말로 ${name}을 포트폴리오에서 삭제하시겠습니까?`)) return;
             try {
                 const res = await fetch('/api/portfolio/save', {
                     method: 'POST',
@@ -492,7 +514,7 @@
                     body: JSON.stringify({ symbol: symbol, tx_type: 'DELETE' })
                 });
                 if ((await res.json()).status === 'success') fetchPortfolioData();
-            } catch (e) { alert("오류"); }
+            } catch (e) { alert("서버 통신 오류"); }
         }
 
         async function fetchPortfolioData() {
@@ -511,66 +533,31 @@
                 renderProfitLabel('total-us-profit', 'total-us-profit-wrapper', data.profit_rate_usd);
                 renderPortfolioTable();
                 renderWeightVisualization(data);
-            } catch (e) { console.error("포트폴리오 동기화 실패", e); }
-        }
-
-        function renderProfitLabel(labelId, wrapperId, profit) {
-            const label = document.getElementById(labelId);
-            const wrapper = document.getElementById(wrapperId);
-            const sign = profit > 0 ? '+' : '';
-            label.innerText = `${sign}${profit}%`;
-            if (profit > 0) wrapper.className = "mt-2 text-sm text-rose-600 font-semibold";
-            else if (profit < 0) wrapper.className = "mt-2 text-sm text-blue-600 font-semibold";
-            else wrapper.className = "mt-2 text-sm text-slate-500";
-        }
-
-        function switchTableTab(tab) {
-            currentTableTab = tab;
-            const krBtn = document.getElementById('tab-kr-btn');
-            const usBtn = document.getElementById('tab-us-btn');
-            if (tab === 'KR') {
-                krBtn.className = "px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition";
-                usBtn.className = "px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition";
-            } else {
-                usBtn.className = "px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition";
-                krBtn.className = "px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition";
-            }
-            renderPortfolioTable();
+            } catch (e) {}
         }
 
         function renderPortfolioTable() {
             if (!globalPortfolioData) return;
             const tableBody = document.getElementById('portfolio-table-body');
             const stocks = globalPortfolioData.portfolio[currentTableTab] || [];
-
             if (stocks.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-slate-400">보유 자산이 존재하지 않습니다.</td></tr>`;
-                return;
+                tableBody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-slate-400">보유 자산이 존재하지 않습니다.</td></tr>`; return;
             }
-
             tableBody.innerHTML = stocks.map(stock => {
                 const profitSign = stock.total_profit > 0 ? '+' : '';
                 const profitClass = stock.total_profit > 0 ? 'text-rose-600 font-medium' : stock.total_profit < 0 ? 'text-blue-600 font-medium' : 'text-slate-500';
-                const isUS = currentTableTab === 'US';
-                
                 return `
                     <tr class="hover:bg-slate-50/80 transition duration-150 whitespace-nowrap">
                         <td class="p-4 font-mono text-xs font-semibold text-slate-400">${stock.symbol}</td>
                         <td class="p-4 font-medium text-slate-800">${stock.name}</td>
                         <td class="p-4 text-right">${stock.quantity.toLocaleString()}</td>
-                        <td class="p-4 text-right font-mono text-xs">${isUS ? '$' : '₩'}${stock.avg_price.toLocaleString()}</td>
-                        <td class="p-4 text-right font-mono text-xs text-indigo-600 font-medium">${isUS ? '$' : '₩'}${stock.current_price.toLocaleString()}</td>
-                        <td class="p-4 text-right font-semibold text-slate-700">${isUS ? '$' : '₩'}${stock.eval_amount.toLocaleString()}</td>
+                        <td class="p-4 text-right font-mono text-xs">${currentTableTab === 'US' ? '$' : '₩'}${stock.avg_price.toLocaleString()}</td>
+                        <td class="p-4 text-right font-mono text-xs text-indigo-600 font-medium">${currentTableTab === 'US' ? '$' : '₩'}${stock.current_price.toLocaleString()}</td>
+                        <td class="p-4 text-right font-semibold text-slate-700">${currentTableTab === 'US' ? '$' : '₩'}${stock.eval_amount.toLocaleString()}</td>
                         <td class="p-4 text-right font-mono text-xs ${profitClass}">${profitSign}${stock.total_profit.toLocaleString()}</td>
                         <td class="p-4 text-right font-mono text-xs ${profitClass}">${profitSign}${stock.total_profit_percent}%</td>
-                        <td class="p-4 text-center">
-                            <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md font-mono text-xs font-bold">${stock.weight_percent}%</span>
-                        </td>
-                        <td class="p-4 text-center">
-                            <button onclick="deleteStock('${stock.symbol}', '${stock.name}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition" title="자산 삭제">
-                                <i class="fa-solid fa-trash-can text-sm"></i>
-                            </button>
-                        </td>
+                        <td class="p-4 text-center"><span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md font-mono text-xs font-bold">${stock.weight_percent}%</span></td>
+                        <td class="p-4 text-center"><button onclick="deleteStock('${stock.symbol}', '${stock.name}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition"><i class="fa-solid fa-trash-can text-sm"></i></button></td>
                     </tr>
                 `;
             }).join('');
@@ -579,28 +566,21 @@
         function renderWeightVisualization(data) {
             const container = document.getElementById('weight-bar-container');
             const allStocks = [...(data.portfolio.KR || []), ...(data.portfolio.US || [])];
-            if (allStocks.length === 0) {
-                container.innerHTML = '<p class="text-sm text-slate-400 py-4 text-center">자산을 등록하시면 비중 분석이 활성화됩니다.</p>'; return;
-            }
+            if (allStocks.length === 0) { container.innerHTML = '<p class="text-xs text-slate-400 py-2">자산 없음</p>'; return; }
             allStocks.sort((a, b) => b.weight_percent - a.weight_percent);
             container.innerHTML = allStocks.map((stock, index) => {
                 const colorPalette = ['bg-indigo-500', 'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500'];
                 return `
-                    <div class="space-y-1.5">
-                        <div class="flex justify-between text-xs font-medium">
-                            <span class="text-slate-700">${stock.name} <span class="text-slate-400 font-mono ml-1">(${stock.symbol})</span></span>
-                            <span class="text-slate-900 font-bold font-mono">${stock.weight_percent}%</span>
-                        </div>
-                        <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div class="${colorPalette[index % 5]} h-full rounded-full transition-all duration-1000" style="width: ${stock.weight_percent}%"></div>
-                        </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-medium"><span>${stock.name}</span><span class="font-bold">${stock.weight_percent}%</span></div>
+                        <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"><div class="${colorPalette[index % 5]} h-full transition-all duration-1000" style="width: ${stock.weight_percent}%"></div></div>
                     </div>
                 `;
             }).join('');
         }
 
         // ==========================================
-        // [SCRIPT 2] 부동산 + 네이버 실매물 실시간 틱 엔진
+        // [SCRIPT 2] 부동산 엔진 파트 (ID 싱크 완벽화)
         // ==========================================
         async function fetchRealEstateData() {
             try {
@@ -608,11 +588,7 @@
                 const data = await response.json();
                 if (data.status === 'error') return;
 
-                let total_estate_market = 0; 
-                let total_loans = 0;         
-                let total_my_deposits = 0;   
-                let total_tenant_deposits = 0; 
-                
+                let total_estate_market = 0; let total_loans = 0; let total_my_deposits = 0; let total_tenant_deposits = 0;
                 let raw_holding_assets = data.holding_assets || [];
 
                 raw_holding_assets.forEach(asset => {
@@ -621,15 +597,11 @@
                     const c_price = parseFloat(asset.current_price || 0);
 
                     if (asset.holding_type === 'TENANT_LEASE') {
-                        total_my_deposits += rent_or_deposit;
-                        total_loans += debt; 
+                        total_my_deposits += rent_or_deposit; total_loans += debt;
                     } else if (asset.holding_type === 'LEASE') {
-                        total_estate_market += c_price;
-                        total_loans += debt;
-                        total_tenant_deposits += rent_or_deposit; 
+                        total_estate_market += c_price; total_loans += debt; total_tenant_deposits += rent_or_deposit;
                     } else {
-                        total_estate_market += c_price;
-                        total_loans += debt;
+                        total_estate_market += c_price; total_loans += debt;
                     }
                 });
 
@@ -641,32 +613,30 @@
                 document.getElementById('re-net-worth').innerText = `₩${final_net_worth.toLocaleString()}`;
 
                 renderRealEstateTable(raw_holding_assets);
-                renderWatchlistTable(data.watch_assets || []); // 모니터링 알림판 렌더 가동
-            } catch (e) { console.error("부동산 동기화 에러", e); }
+                renderWatchlistTable(data.watch_assets || []);
+            } catch (e) { console.error("부동산 동기화 예외", e); }
         }
 
         async function submitRealEstate() {
             const name = document.getElementById('re-name').value.trim();
             const complex_type = document.getElementById('re-type').value;
             const holding_type = document.getElementById('re-holding').value;
+            const is_watchlist = document.getElementById('re-is-watchlist').checked;
             
+            if (!name) { alert("매물 또는 아파트 명칭을 입력해 주십시오."); return; }
+
+            const target_price = is_watchlist ? parseFloat(document.getElementById('re-target-price').value) || 0 : 0;
+            let deposit = parseFloat(document.getElementById('re-deposit').value) || 0;
             let purchase_price = parseFloat(document.getElementById('re-pur-price').value) || 0;
             let current_price = parseFloat(document.getElementById('re-curr-price').value) || 0;
             const debt = parseFloat(document.getElementById('re-debt').value) || 0;
-            const deposit = parseFloat(document.getElementById('re-deposit').value) || 0;
             const monthly_rent = parseFloat(document.getElementById('re-rent').value) || 0;
 
-            if (!name) { alert("매물 또는 거주지 명칭을 입력해 주십시오."); return; }
-
-            const is_watchlist = (holding_type === 'WATCHLIST');
-            const target_price = is_watchlist ? parseFloat(document.getElementById('re-target-price').value) || 0 : 0;
-
             let target_rent_field = monthly_rent;
-            if (holding_type === 'TENANT_LEASE') {
-                purchase_price = 0; current_price = 0; 
-                target_rent_field = deposit; 
-            } else if (holding_type === 'LEASE') {
-                target_rent_field = deposit; 
+            if (holding_type === 'TENANT_LEASE' && !is_watchlist) {
+                purchase_price = 0; current_price = 0; target_rent_field = deposit;
+            } else if (holding_type === 'LEASE' && !is_watchlist) {
+                target_rent_field = deposit;
             }
 
             try {
@@ -674,84 +644,68 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        name, estate_type: complex_type, holding_type: is_watchlist ? 'OWN' : holding_type, 
+                        name, estate_type: complex_type, holding_type: is_watchlist ? 'OWN' : holding_type,
                         purchase_price, current_price, debt, monthly_rent: target_rent_field,
                         is_watchlist: is_watchlist, target_price
                     })
                 });
                 if ((await res.json()).status === 'success') {
-                    alert("성공적으로 처리되었습니다.");
+                    alert("성공적으로 등록되었습니다.");
                     document.getElementById('re-name').value = '';
                     document.getElementById('re-pur-price').value = '';
                     document.getElementById('re-curr-price').value = '';
                     document.getElementById('re-debt').value = '';
                     document.getElementById('re-deposit').value = '';
                     document.getElementById('re-rent').value = '';
+                    document.getElementById('re-is-watchlist').checked = false;
                     if(document.getElementById('re-target-price')) document.getElementById('re-target-price').value = '';
+                    toggleWatchlistInputs();
                     fetchRealEstateData();
                 }
-            } catch (e) { alert("통신 에러"); }
+            } catch (e) { alert("저장 실패"); }
         }
 
         async function deleteRealEstate(id) {
-            if (!confirm("해당 내역을 영구 삭제하시겠습니까?")) return;
-            try {
-                const res = await fetch('/api/real-estate/save', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'DELETE', id: id })
-                });
-                if ((await res.json()).status === 'success') fetchRealEstateData();
-            } catch (e) { alert("통신 오류"); }
+            if (!confirm("해당 부동산 내역을 삭제하시겠습니까?")) return;
+            await fetch('/api/real-estate/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'DELETE', id }) });
+            fetchRealEstateData();
         }
 
         function renderRealEstateTable(assets) {
             const tbody = document.getElementById('re-table-body');
             if (!assets || assets.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-slate-400">등록된 내역이 없습니다.</td></tr>`; return;
+                tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-slate-400">등록된 실물 자산 내역이 없습니다.</td></tr>`; return;
             }
-
-            const typeMap = { 'APT': '아파트', 'OFFICETEL': '오피스텔', 'BUILDING': '상가빌딩', 'LAND': '토지' };
-            const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주(세입자)', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대(집주인)' };
+            const typeMap = { 'APT': '아파트', 'OFFICETEL': '오피스텔', 'BUILDING': '상가빌딩' };
+            const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대' };
 
             tbody.innerHTML = assets.map(item => {
-                let displayPurPrice = `₩${item.purchase_price.toLocaleString()}`;
-                let displayMarketPrice = "-"; let displayMyDeposit = "-"; let displayTenantDeposit = "₩0"; let displayRent = "₩0";
+                let p_price = `₩${item.purchase_price.toLocaleString()}`;
+                let m_price = "-"; let my_dep = "-"; let t_dep = "₩0"; let rent = "₩0";
                 let displayProfit = item.current_price - item.purchase_price;
 
                 if (item.holding_type === 'TENANT_LEASE') {
-                    displayPurPrice = "-"; displayMarketPrice = "-";
-                    displayMyDeposit = `₩${item.monthly_rent.toLocaleString()}`;
-                    displayTenantDeposit = "-"; displayRent = "-"; displayProfit = 0; 
+                    p_price = "-"; m_price = "-"; my_dep = `₩${item.monthly_rent.toLocaleString()}`; t_dep = "-"; rent = "-"; displayProfit = 0;
                 } else if (item.holding_type === 'LEASE') {
-                    displayMarketPrice = `₩${item.current_price.toLocaleString()}`; displayMyDeposit = "-";
-                    displayTenantDeposit = `₩${item.monthly_rent.toLocaleString()}`;
+                    m_price = `₩${item.current_price.toLocaleString()}`; my_dep = "-"; t_dep = `₩${item.monthly_rent.toLocaleString()}`;
                 } else {
-                    displayMarketPrice = `₩${item.current_price.toLocaleString()}`; displayMyDeposit = "-";
-                    if (item.holding_type === 'MONTHLY') displayRent = `₩${item.monthly_rent.toLocaleString()}`;
+                    m_price = `₩${item.current_price.toLocaleString()}`; my_dep = "-";
+                    if (item.holding_type === 'MONTHLY') rent = `₩${item.monthly_rent.toLocaleString()}`;
                 }
-
-                const profitSign = displayProfit > 0 ? '+' : '';
-                const profitClass = displayProfit > 0 ? 'text-rose-600 font-medium' : displayProfit < 0 ? 'text-blue-600 font-medium' : 'text-slate-400';
-                const finalProfitText = displayProfit === 0 ? "-" : `${profitSign}₩${displayProfit.toLocaleString()}`;
-
+                const pClass = displayProfit > 0 ? 'text-rose-600 font-medium' : displayProfit < 0 ? 'text-blue-600 font-medium' : 'text-slate-400';
                 return `
-                    <tr class="hover:bg-slate-50/80 transition duration-150 whitespace-nowrap">
+                    <tr class="hover:bg-slate-50/80 transition whitespace-nowrap">
                         <td class="py-3.5 px-6 font-semibold text-slate-800">${item.name}</td>
-                        <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-slate-100 rounded-md text-xs font-medium text-slate-600">${typeMap[item.estate_type] || item.estate_type}</span></td>
-                        <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-indigo-50 rounded-md text-xs font-medium text-indigo-600">${holdMap[item.holding_type] || item.holding_type}</span></td>
-                        <td class="py-3.5 px-6 text-right font-mono text-xs text-slate-400">${displayPurPrice}</td>
-                        <td class="py-3.5 px-6 text-right font-semibold text-slate-700 font-mono text-xs">${displayMarketPrice}</td>
-                        <td class="py-3.5 px-6 text-right font-bold text-amber-600 font-mono text-xs">${displayMyDeposit}</td>
-                        <td class="py-3.5 px-6 text-right text-rose-500 font-mono text-xs">₩${item.debt.toLocaleString()}</td>
-                        <td class="py-3.5 px-6 text-right text-slate-500 font-mono text-xs">${displayTenantDeposit}</td>
-                        <td class="py-3.5 px-6 text-right text-emerald-600 font-mono text-xs">${displayRent}</td>
-                        <td class="py-3.5 px-6 text-right font-mono text-xs ${profitClass}">${finalProfitText}</td>
-                        <td class="py-3.5 px-6 text-center">
-                            <button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition shadow-sm" title="삭제">
-                                <i class="fa-solid fa-trash-can text-sm"></i>
-                            </button>
-                        </td>
+                        <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-slate-100 rounded text-xs">${typeMap[item.estate_type] || item.estate_type}</span></td>
+                        <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-indigo-50 rounded text-xs text-indigo-600">${holdMap[item.holding_type] || item.holding_type}</span></td>
+                        <td class="py-3.5 px-6 text-right text-slate-400">${p_price}</td>
+                        <td class="py-3.5 px-6 text-right font-semibold">${m_price}</td>
+                        <td class="py-3.5 px-6 text-right font-bold text-amber-600">${my_dep}</td>
+                        <td class="py-3.5 px-6 text-right text-rose-500">₩${item.debt.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right text-slate-400">${t_dep}</td>
+                        <td class="py-3.5 px-6 text-right text-emerald-600">₩${item.monthly_rent.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right ${pClass}">${displayProfit===0 ? '-' : (displayProfit>0 ? '+':'') + '₩'+displayProfit.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-center"><button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>
                 `;
             }).join('');
@@ -759,29 +713,23 @@
 
         function renderWatchlistTable(assets) {
             const tbody = document.getElementById('re-watchlist-body');
-            if(!assets || assets.length === 0) { 
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">현재 모니터링 중인 관심 아파트 단지가 없습니다.</td></tr>`; return; 
+            if(!assets || assets.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">현재 모니터링 중인 관심 아파트 단지가 없습니다.</td></tr>`; return;
             }
-            
             tbody.innerHTML = assets.map(item => {
-                const livePrice = item.current_price || 0;
-                const targetPrice = item.target_price || 0;
+                const livePrice = item.current_price || 0; const targetPrice = item.target_price || 0;
                 const isSignalHit = livePrice > 0 && targetPrice > 0 && livePrice <= targetPrice;
-                
-                const signalBadge = isSignalHit 
-                    ? `<span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-bold animate-pulse"><i class="fa-solid fa-fire-flame-curved mr-1"></i> 매수 타이밍 도달!</span>`
-                    : `<span class="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium">시세 추적 중</span>`;
-
+                const badge = isSignalHit 
+                    ? `<span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-bold animate-pulse"><i class="fa-solid fa-fire-flame-curved mr-1"></i> 매수 기회 도달!</span>`
+                    : `<span class="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium">추적 중</span>`;
                 return `
                     <tr class="hover:bg-slate-50 whitespace-nowrap">
                         <td class="p-4 font-bold text-slate-800">${item.name}</td>
-                        <td class="p-4 text-center"><span class="px-2 py-0.5 bg-slate-100 rounded text-xs text-slate-500">아파트</span></td>
+                        <td class="p-4 text-center"><span class="px-2 py-0.5 bg-slate-100 text-xs">아파트</span></td>
                         <td class="p-4 text-right font-mono font-bold text-indigo-600">₩${livePrice.toLocaleString()}</td>
                         <td class="p-4 text-right font-mono font-medium text-slate-600">₩${targetPrice.toLocaleString()}</td>
-                        <td class="p-4 text-center">${signalBadge}</td>
-                        <td class="p-4 text-center">
-                            <button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600 p-1 rounded-md"><i class="fa-solid fa-trash-can"></i></button>
-                        </td>
+                        <td class="p-4 text-center">${badge}</td>
+                        <td class="p-4 text-center"><button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>
                 `;
             }).join('');
