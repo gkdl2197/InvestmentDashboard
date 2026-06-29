@@ -128,20 +128,27 @@ def search_stock():
 
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
-    supabase = get_supabase_client()
 
-    if supabase is None:
-        return jsonify({
-            "status":"error",
-            "message":"Supabase 미연결"
-        }),500
-
-    db_stocks = []
     try:
+        supabase = get_supabase_client()
+
+        if supabase is None:
+            return jsonify({
+                "status": "error",
+                "message": "Supabase 미연결"
+            }), 500
+
         res = supabase.table("stock_portfolio").select("*").execute()
-        db_stocks = res.data if res.data else []
+
+        return jsonify(res.data)
+
     except Exception as e:
-        return jsonify({"status": "error", "message": f"DB 로드 에러: {str(e)}"}), 500
+        import traceback
+        traceback.print_exc()   # 콘솔에 전체 에러 출력
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
     exchange_rate = ExchangeRateService().get_usd_krw() or 1350.0
     portfolio = {"KR": [], "US": []}
