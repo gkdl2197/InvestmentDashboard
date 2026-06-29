@@ -355,4 +355,4 @@ def save_real_estate():
         return jsonify({"status": "success"})
         
     except Exception as e:
-        return jsonify({"status": "error", "message": f"부동산 저장 실패: {str(e)}"}), 500git add .
+        return jsonify({"status": "error", "message": f"부동산 저장 실패: {str(e)}"}), 500
