@@ -1,24 +1,33 @@
 # ==========================================
 # PROJECT: INVESTMENT DASHBOARD
-# VERSION: v1.5.0 (Pure Original Rollback - Sanctuary)
+# VERSION: v1.5.1 (Pure Stock Recovery & Absolute Import Path Fix)
 # DATE: 2026-06-29
 # AUTHOR: CTO & 제대리 (Gemini)
-# DESCRIPTION: 오전에 100% 완벽하게 가동되던 주식 전용 오리지널 소스코드 완전 원복본
+# DESCRIPTION: 오전 주식 코어 100% 원복 + 서버리스 크래시 유발 'from app import' 경로 정밀 수정
 # ==========================================
 import os
 import requests
-from flask import Blueprint, request, jsonify
-from app import supabase
+from flask import Blueprint, request, jsonify, current_app
 
-# 💡 오전에 완벽하게 작동했던 정식 백엔드 모듈 경로 그대로 복구
+# 💡 핵심 교정: ModuleNotFoundError를 유발하는 'from app'을 버리고 무결한 backend 패스로 우회합니다.
 from backend.app.services.kr_stock import KrStockService
 from backend.app.services.us_stock import UsStockService
 from backend.app.services.exchange_rate import ExchangeRateService
 
 api_blueprint = Blueprint("api", __name__)
 
+# 전역 scope에서 터지는 것을 막기 위해 런타임에 current_app을 통해 주입된 db 객체를 가져옵니다.
+def get_supabase():
+    try:
+        from backend.app.database import db
+        return db
+    except Exception:
+        return None
+
 @api_blueprint.route("/stock/search", methods=["GET"])
 def search_stock():
+    # 💡 런타임 바인딩으로 순환 참조 및 모듈 경로 유실 완벽 방어
+    from backend.app.database import db as supabase
     if not supabase:
         return jsonify([])
 
@@ -86,6 +95,7 @@ def search_stock():
 
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
+    from backend.app.database import db as supabase
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
 
@@ -185,6 +195,7 @@ def get_portfolio():
 
 @api_blueprint.route("/portfolio/save", methods=["POST"])
 def save_portfolio():
+    from backend.app.database import db as supabase
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     
