@@ -1,11 +1,8 @@
-# api/index.py
-import sys
 import os
+import sys
 
-# 💡 Vercel 클라우드 환경에서 최상위 및 backend/frontend 폴더를 완벽하게 탐색하도록 인프라 경로 주입
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(current_dir)
-sys.path.append(project_root)
+# 💡 Vercel 람다 컨테이너가 backend 폴더 내부를 완벽하게 탐색할 수 있도록 경로 주입 마법을 부립니다.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../backend'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-# 기존 Flask 앱 인스턴스를 다이렉트로 로드합니다.
 from backend.run import app
