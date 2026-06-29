@@ -18,6 +18,7 @@
             --lime-green: #deff9a;
             --plus-color: #3fb950;
             --minus-color: #f85149;
+            --orange-re: #ff9f43;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -26,17 +27,34 @@
             font-family: 'Urbanist', sans-serif;
             padding: 25px;
         }
-        .header {
+        
+        /* 💡 v1.5.0 상단 헤더 및 듀얼 자산 네비게이션 탭 바 */
+        .header-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
+            padding-bottom: 15px;
         }
-        .header h1 { font-size: 28px; font-weight: 700; color: var(--text-white); }
-        .header h1 span { color: var(--lime-green); }
+        .header-title h1 { font-size: 28px; font-weight: 700; color: var(--text-white); }
+        .header-title h1 span { color: var(--lime-green); }
+        
+        .nav-tabs { display: flex; gap: 10px; }
+        .tab-btn {
+            background-color: #1f242c; border: 1px solid var(--border-color);
+            color: #8b949e; padding: 10px 20px; font-size: 14px; font-weight: bold;
+            border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+        }
+        .tab-btn:hover { border-color: #8b949e; color: var(--text-white); }
+        .tab-btn.active-stock { background-color: rgba(222, 255, 154, 0.15); border-color: var(--lime-green); color: var(--lime-green); }
+        .tab-btn.active-re { background-color: rgba(255, 159, 67, 0.15); border-color: var(--orange-re); color: var(--orange-re); }
+        
         .fx-rate { font-family: 'JetBrains Mono', monospace; color: #8b949e; font-size: 14px; }
+
+        /* 자산 섹션 컨테이너 제어 */
+        .asset-view-panel { display: none; }
+        .asset-view-panel.active-panel { display: block; }
 
         .summary-container {
             display: grid;
@@ -72,6 +90,7 @@
         .section-title span { font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: bold; }
         .badge-kr { background-color: rgba(255, 123, 114, 0.15); color: #ff7b72; }
         .badge-us { background-color: rgba(88, 166, 255, 0.15); color: #58a6ff; }
+        .badge-re { background-color: rgba(255, 159, 67, 0.15); color: var(--orange-re); }
 
         .table-container {
             background-color: var(--card-bg);
@@ -88,7 +107,6 @@
         .plus { color: var(--plus-color) !important; }
         .minus { color: var(--minus-color) !important; }
 
-        /* 💡 v1.3.1 삭제 버튼 전용 미니멀 테크니컬 디자인스타일 */
         .btn-delete-row {
             background: transparent; border: none; color: #8b949e; cursor: pointer;
             padding: 4px 8px; border-radius: 4px; transition: all 0.2s; font-size: 13px;
@@ -108,6 +126,7 @@
         }
         .tx-btn.active-buy { background: rgba(63, 185, 80, 0.15); color: var(--plus-color); border-color: var(--plus-color); }
         .tx-btn.active-sell { background: rgba(248, 81, 73, 0.15); color: var(--minus-color); border-color: var(--minus-color); }
+        .tx-btn.active-re-buy { background: rgba(255, 159, 67, 0.15); color: var(--orange-re); border-color: var(--orange-re); }
 
         .form-group { margin-bottom: 12px; position: relative; }
         label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px; }
@@ -116,6 +135,7 @@
             border-radius: 6px; padding: 8px 10px; color: var(--text-white); font-size: 13px;
         }
         input:focus, select:focus { border-color: var(--lime-green); outline: none; }
+        .re-focus:focus { border-color: var(--orange-re) !important; }
         
         .btn-submit {
             width: 100%; color: #000; border: none;
@@ -123,6 +143,7 @@
         }
         .btn-buy-mode { background-color: var(--plus-color); color: white; }
         .btn-sell-mode { background-color: var(--minus-color); color: white; }
+        .btn-re-mode { background-color: var(--orange-re); color: white; }
 
         .autocomplete-box {
             position: absolute; top: 100%; left: 0; right: 0; background-color: #1f242c;
@@ -132,122 +153,270 @@
         .autocomplete-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid rgba(48,54,61,0.3); font-size: 13px; }
         .autocomplete-item:hover { background-color: rgba(222, 255, 154, 0.1); color: var(--lime-green); }
         
-        #portfolio-chart { width: 100%; height: 200px; }
+        .chart-box { width: 100%; height: 200px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>INVESTMENT <span>DASHBOARD</span></h1>
+    <div class="header-container">
+        <div class="header-title">
+            <h1>INVESTMENT <span>DASHBOARD</span></h1>
+        </div>
+        <div class="nav-tabs">
+            <button id="tab-stock" class="tab-btn active-stock" onclick="switchView('STOCK')"><i class="fa-solid fa-chart-line"></i> 주식 포트폴리오</button>
+            <button id="tab-re" class="tab-btn" onclick="switchView('RE')"><i class="fa-solid fa-building"></i> 부동산 포트폴리오</button>
+        </div>
         <div id="fx-display" class="fx-rate">환율: ₩ --</div>
     </div>
 
-    <div class="summary-container">
-        <div class="card" style="border-top: 3px solid var(--plus-color);">
-            <div class="card-title">원화 평가 자산 (KRW)</div>
-            <div id="total-eval-krw" class="card-value font-mono">₩ 0</div>
-            <span id="rate-krw" class="card-rate-tag">0.00%</span>
+    <div id="panel-stock" class="asset-view-panel active-panel">
+        <div class="summary-container">
+            <div class="card" style="border-top: 3px solid var(--plus-color);">
+                <div class="card-title">원화 평가 자산 (KRW)</div>
+                <div id="total-eval-krw" class="card-value font-mono">₩ 0</div>
+                <span id="rate-krw" class="card-rate-tag">0.00%</span>
+            </div>
+            <div class="card" style="border-top: 3px solid #58a6ff;">
+                <div class="card-title">달러 평가 자산 (USD)</div>
+                <div id="total-eval-usd" class="card-value font-mono">$ 0.00</div>
+                <span id="rate-usd" class="card-rate-tag">0.00%</span>
+                <span id="total-eval-usd-converted" style="color:#8b949e; font-size:11px; display:block; margin-top:2px;">(₩ 0)</span>
+            </div>
+            <div class="card" style="border-top: 3px solid var(--lime-green); padding: 5px 12px;">
+                <div id="portfolio-chart" class="chart-box"></div>
+            </div>
         </div>
-        <div class="card" style="border-top: 3px solid #58a6ff;">
-            <div class="card-title">달러 평가 자산 (USD)</div>
-            <div id="total-eval-usd" class="card-value font-mono">$ 0.00</div>
-            <span id="rate-usd" class="card-rate-tag">0.00%</span>
-            <span id="total-eval-usd-converted" style="color:#8b949e; font-size:11px; display:block; margin-top:2px;">(₩ 0)</span>
-        </div>
-        <div class="card" style="border-top: 3px solid var(--lime-green); padding: 5px 12px;">
-            <div id="portfolio-chart"></div>
+
+        <div class="dashboard-body">
+            <div>
+                <div class="section-title">원화 종목 <span class="badge-kr">₩ KRW</span></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>종목명/코드</th>
+                                <th class="text-right">보유수량</th>
+                                <th class="text-right">평단</th>
+                                <th class="text-right">현재가</th>
+                                <th class="text-right">평가금액</th>
+                                <th class="text-right">수익률</th>
+                                <th class="text-center" style="width: 60px;">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kr-table-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="section-title">달러 종목 <span class="badge-us">$ USD</span></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>종목명/코드</th>
+                                <th class="text-right">보유수량</th>
+                                <th class="text-right">평단</th>
+                                <th class="text-right">현재가</th>
+                                <th class="text-right">평가금액</th>
+                                <th class="text-right">수익률</th>
+                                <th class="text-center" style="width: 60px;">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="us-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <div class="panel-title"><i class="fa-solid fa-pen-to-square"></i> 주식 자산 업데이트</div>
+                    <div class="tx-toggle-container">
+                        <div id="tx-buy-btn" class="tx-btn active-buy" onclick="setTxType('BUY')">매수 (추가)</div>
+                        <div id="tx-sell-btn" class="tx-btn" onclick="setTxType('SELL')">매도 (경감)</div>
+                    </div>
+                    <form id="asset-form">
+                        <input type="hidden" id="asset-tx-type" value="BUY">
+                        <div class="form-group">
+                            <label>시장 구분</label>
+                            <select id="asset-market" onchange="clearSearch()">
+                                <option value="KR">한국 시장 (KRW)</option>
+                                <option value="US">미국 시장 (USD)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>종목 검색</label>
+                            <input type="text" id="asset-query" placeholder="종목명 또는 티커 입력..." autocomplete="off">
+                            <div id="search-results" class="autocomplete-box"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>선택된 심볼</label>
+                            <input type="text" id="asset-symbol" readonly style="background-color:rgba(0,0,0,0.2); color:#8b949e;">
+                            <input type="hidden" id="asset-name">
+                        </div>
+                        <div class="form-group">
+                            <label id="label-qty">매수 수량</label>
+                            <input type="number" id="asset-qty" step="any" placeholder="0.0" required>
+                        </div>
+                        <div class="form-group" id="price-form-group">
+                            <label id="label-price">매수 단가</label>
+                            <input type="number" id="asset-price" step="any" placeholder="0.0" required>
+                        </div>
+                        <button type="submit" id="submit-btn" class="btn-submit btn-buy-mode">매수 반영하기</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="dashboard-body">
-        <div>
-            <div class="section-title">원화 종목 <span class="badge-kr">₩ KRW</span></div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>종목명/코드</th>
-                            <th class="text-right">보유수량</th>
-                            <th class="text-right">평단</th>
-                            <th class="text-right">현재가</th>
-                            <th class="text-right">평가금액</th>
-                            <th class="text-right">수익률</th>
-                            <th class="text-center" style="width: 60px;">관리</th> </tr>
-                    </thead>
-                    <tbody id="kr-table-body"></tbody>
-                </table>
-            </div>
 
-            <div class="section-title">달러 종목 <span class="badge-us">$ USD</span></div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>종목명/코드</th>
-                            <th class="text-right">보유수량</th>
-                            <th class="text-right">평단</th>
-                            <th class="text-right">현재가</th>
-                            <th class="text-right">평가금액</th>
-                            <th class="text-right">수익률</th>
-                            <th class="text-center" style="width: 60px;">관리</th> </tr>
-                    </thead>
-                    <tbody id="us-table-body"></tbody>
-                </table>
+    <div id="panel-re" class="asset-view-panel">
+        <div class="summary-container">
+            <div class="card" style="border-top: 3px solid var(--orange-re);">
+                <div class="card-title">부동산 총 평가액</div>
+                <div id="re-total-eval" class="card-value font-mono">₩ 0</div>
+                <span id="re-total-profit-rate" class="card-rate-tag plus">+0.00%</span>
+            </div>
+            <div class="card" style="border-top: 3px solid #ff7b72;">
+                <div class="card-title">총 부채 (대출 및 보증금)</div>
+                <div id="re-total-debt" class="card-value font-mono" style="color: #ff7b72;">₩ 0</div>
+                <span id="re-net-worth" class="card-rate-tag" style="color: #8b949e;">순자산: ₩ 0</span>
+            </div>
+            <div class="card" style="border-top: 3px solid #58a6ff; padding: 5px 12px;">
+                <div id="re-portfolio-chart" class="chart-box"></div>
             </div>
         </div>
 
-        <div>
-            <div class="card">
-                <div class="panel-title"><i class="fa-solid fa-pen-to-square"></i> 자산 업데이트</div>
-                
-                <div class="tx-toggle-container">
-                    <div id="tx-buy-btn" class="tx-btn active-buy" onclick="setTxType('BUY')">매수 (추가)</div>
-                    <div id="tx-sell-btn" class="tx-btn" onclick="setTxType('SELL')">매도 (경감)</div>
+        <div class="dashboard-body">
+            <div>
+                <div class="section-title">보유 부동산 자산 현황 <span class="badge-re">REAL ESTATE</span></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>물건명 / 유형</th>
+                                <th class="text-right">취득가액</th>
+                                <th class="text-right">현재시세</th>
+                                <th class="text-right">대출 / 보증금</th>
+                                <th class="text-right">월세 수입</th>
+                                <th class="text-right">평가손익</th>
+                                <th class="text-center" style="width: 60px;">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="re-table-body">
+                            <tr>
+                                <td><b>반포 자이 아파트</b><br><span style="color:#8b949e; font-size:12px;">주거용 아파트</span></td>
+                                <td class="text-right font-mono">₩ 3,000,000,000</td>
+                                <td class="text-right font-mono">₩ 3,400,000,000</td>
+                                <td class="text-right font-mono" style="color:#ff7b72;">₩ 1,200,000,000</td>
+                                <td class="text-right font-mono">₩ 0 (자가)</td>
+                                <td class="text-right font-mono plus"><b>+13.33%</b><br><span>+₩ 400,000,000</span></td>
+                                <td class="text-center"><button class="btn-delete-row" onclick="alert('부동산 대전 기동 대기 중')"><i class="fa-solid fa-trash-can"></i></button></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
+            </div>
 
-                <form id="asset-form">
-                    <input type="hidden" id="asset-tx-type" value="BUY">
-                    
-                    <div class="form-group">
-                        <label>시장 구분</label>
-                        <select id="asset-market" onchange="clearSearch()">
-                            <option value="KR">한국 시장 (KRW)</option>
-                            <option value="US">미국 시장 (USD)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>종목 검색</label>
-                        <input type="text" id="asset-query" placeholder="종목명 또는 티커 입력..." autocomplete="off">
-                        <div id="search-results" class="autocomplete-box"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>선택된 심볼</label>
-                        <input type="text" id="asset-symbol" readonly style="background-color:rgba(0,0,0,0.2); color:#8b949e;">
-                        <input type="hidden" id="asset-name">
-                    </div>
-                    <div class="form-group">
-                        <label id="label-qty">매수 수량</label>
-                        <input type="number" id="asset-qty" step="any" placeholder="0.0" required>
-                    </div>
-                    
-                    <div class="form-group" id="price-form-group">
-                        <label id="label-price">매수 단가</label>
-                        <input type="number" id="asset-price" step="any" placeholder="0.0" required>
-                    </div>
-                    <button type="submit" id="submit-btn" class="btn-submit btn-buy-mode">매수 반영하기</button>
-                </form>
+            <div>
+                <div class="card">
+                    <div class="panel-title" style="color: var(--orange-re);"><i class="fa-solid fa-house-medical"></i> 부동산 자산 등록</div>
+                    <form id="re-asset-form">
+                        <div class="form-group">
+                            <label>물건 유형</label>
+                            <select id="re-type" class="re-focus">
+                                <option value="APART">아파트</option>
+                                <option value="OFFICE">오피스텔</option>
+                                <option value="BUILD">상가 / 빌딩</option>
+                                <option value="N_APART">분양권 / 재개발</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>물건명</label>
+                            <input type="text" id="re-name" class="re-focus" placeholder="예: 판교 푸르지오 84A" required>
+                        </div>
+                        <div class="form-group">
+                            <label>취득 가액 (매입가)</label>
+                            <input type="number" id="re-purchase-price" class="re-focus" placeholder="₩ 0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>현재 시세 (평가액)</label>
+                            <input type="number" id="re-current-price" class="re-focus" placeholder="₩ 0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>대출금 및 임대보증금 (부채)</label>
+                            <input type="number" id="re-debt" class="re-focus" placeholder="₩ 0">
+                        </div>
+                        <div class="form-group">
+                            <label>월세 수입 (선택)</label>
+                            <input type="number" id="re-monthly-rent" class="re-focus" placeholder="₩ 0">
+                        </div>
+                        <button type="submit" class="btn-submit btn-re-mode">부동산 등기 반영하기</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
+        // 💡 v1.5.0 싱글 페이지 탭 전환 스위칭 핵심 스크립트
+        function switchView(view) {
+            const tabStock = document.getElementById("tab-stock");
+            const tabRe = document.getElementById("tab-re");
+            const panelStock = document.getElementById("panel-stock");
+            const panelRe = document.getElementById("panel-re");
+
+            if (view === 'STOCK') {
+                tabStock.className = "tab-btn active-stock";
+                tabRe.className = "tab-btn";
+                panelStock.className = "asset-view-panel active-panel";
+                panelRe.className = "asset-view-panel";
+                if(typeof loadDashboardData === "function") loadDashboardData();
+            } else {
+                tabStock.className = "tab-btn";
+                tabRe.className = "tab-btn active-re";
+                panelStock.className = "asset-view-panel";
+                panelRe.className = "asset-view-panel active-panel";
+                drawReMockChart(); // 부동산 전용 도넛차트 구동
+            }
+        }
+
+        function toCommas(v) {
+            if (v === undefined || v === null) return "0";
+            const num = parseFloat(v);
+            if (isNaN(num)) return v.toString();
+            return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+
+        // 부동산 임시 차트 렌더링 함수
+        let reChartInstance = null;
+        function drawReMockChart() {
+            const options = {
+                series: [100],
+                labels: ['반포 자이 아파트'],
+                chart: { type: 'donut', height: 200 },
+                colors: ['#ff9f43'],
+                stroke: { show: false },
+                legend: { show: false },
+                dataLabels: { enabled: true, style: { fontSize: '10px' } }
+            };
+            if(reChartInstance) reChartInstance.destroy();
+            reChartInstance = new ApexCharts(document.querySelector("#re-portfolio-chart"), options);
+            reChartInstance.render();
+            
+            // 상단 요약본 목업 업데이트
+            document.getElementById("re-total-eval").innerText = "₩ 3,400,000,000";
+            document.getElementById("re-total-debt").innerText = "₩ 1,200,000,000";
+            document.getElementById("re-net-worth").innerText = "순자산: ₩ 2,200,000,000";
+        }
+
+        // ==========================================
+        // 기존 주식 코어 파이프라인 정밀 보존 스크립트
+        // ==========================================
         let currentTxType = "BUY";
 
         function setTxType(type) {
             currentTxType = type;
             document.getElementById("asset-tx-type").value = type;
-            
             const buyBtn = document.getElementById("tx-buy-btn");
             const sellBtn = document.getElementById("tx-sell-btn");
             const submitBtn = document.getElementById("submit-btn");
@@ -270,39 +439,21 @@
             }
         }
 
-        function toCommas(v) {
-            if (v === undefined || v === null) return "0";
-            const num = parseFloat(v);
-            if (isNaN(num)) return v.toString();
-            return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
-        }
-
         function clearSearch() {
             document.getElementById("asset-query").value = "";
             document.getElementById("asset-symbol").value = "";
             document.getElementById("asset-name").value = "";
         }
 
-        // 💡 v1.3.1 임의 강제 삭제 API 트리거 체인 함수 신설
         function deleteStockRow(market, symbol, name) {
             if (!confirm(`[${name}] 종목을 포트폴리오에서 즉시 제거하시겠습니까?`)) return;
-
-            const payload = {
-                tx_type: "SELL", // 매도 트리거 발생
-                market: market,
-                symbol: symbol,
-                name: name,
-                quantity: 99999999, // 💡 기존 보유 수량보다 무조건 큰 숫자를 쏴서 강제로 0 이하 클렌징 유도
-                avg_price: 0
-            };
-
+            const payload = { tx_type: "SELL", market: market, symbol: symbol, name: name, quantity: 99999999, avg_price: 0 };
             fetch("/api/portfolio/save", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             }).then(res => res.json()).then(resData => {
-                if(resData.status === "success") {
-                    loadDashboardData(); // 새로고침 없이 즉시 화면 갱신
-                } else { alert("삭제 실패: " + resData.message); }
+                if(resData.status === "success") { loadDashboardData(); }
+                else { alert("삭제 실패: " + resData.message); }
             });
         }
 
@@ -436,10 +587,7 @@
                 body: JSON.stringify(payload)
             }).then(res => res.json()).then(resData => {
                 if(resData.status === "success") {
-                    this.reset();
-                    setTxType("BUY");
-                    clearSearch();
-                    loadDashboardData();
+                    this.reset(); setTxType("BUY"); clearSearch(); loadDashboardData();
                 } else { alert("반영 실패: " + resData.message); }
             });
         });
