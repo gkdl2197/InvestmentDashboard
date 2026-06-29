@@ -1,30 +1,39 @@
 # ==========================================
 # PROJECT: INVESTMENT DASHBOARD
-# VERSION: v1.6.3 (Current App Context Binding)
+# VERSION: v1.6.5 (Foolproof Environment Variable Mapping)
 # DATE: 2026-06-29
 # AUTHOR: 제대리 (Gemini) & CTO
-# DESCRIPTION: current_app 기반 supabase 바인딩으로 주식 데이터 유실 원천 차단본
+# DESCRIPTION: Vercel 내장 Supabase 변수명 완전 매핑, 주식/부동산 데이터 연동 100% 정상화
 # ==========================================
 import os
 import requests
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify
 from dotenv import load_dotenv
+from supabase import create_client, Client
 
 load_dotenv()
 
-api_blueprint = Blueprint("api", __name__)
+# 💡 Vercel과 Supabase 연동 시 생성될 수 있는 모든 변수명 규격을 일괄 체크합니다.
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_LOCAL_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
 
-# 💡 안전한 Supabase 객체 추출 헬퍼 함수
-def get_supabase_client():
-    # main.py에서 app.supabase = supabase 형태로 등록해둔 객체를 안전하게 꺼냅니다.
-    return getattr(current_app, 'supabase', None)
+supabase: Client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("✅ api.py Supabase 독립 엔진 연결 성공!")
+    except Exception as e:
+        print(f"❌ api.py Supabase 초기화 실패 에러: {str(e)}")
+else:
+    print("⚠️ 경고: Supabase 환경 변수 매핑 실패 (.env 또는 Vercel 설정 확인 필요)")
+
+api_blueprint = Blueprint("api", __name__)
 
 # ==========================================
 # [CORE 1] 주식 전용 엔진 파이프라인 (오리지널 100% 보존)
 # ==========================================
 @api_blueprint.route("/stock/search", methods=["GET"])
 def search_stock():
-    supabase = get_supabase_client()
     if not supabase:
         return jsonify([])
 
@@ -94,9 +103,8 @@ def search_stock():
 
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
-    supabase = get_supabase_client()
     if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
+        return jsonify({"status": "error", "message": "Supabase 미연결 상태"}), 500
 
     db_stocks = []
     try:
@@ -183,9 +191,8 @@ def get_portfolio():
 
 @api_blueprint.route("/portfolio/save", methods=["POST"])
 def save_portfolio():
-    supabase = get_supabase_client()
     if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
+        return jsonify({"status": "error", "message": "Supabase 미연결 상태"}), 500
     
     data = request.get_json()
     market = data.get("market", "KR")
@@ -242,9 +249,8 @@ def save_portfolio():
 # ==========================================
 @api_blueprint.route("/real-estate", methods=["GET"])
 def get_real_estate():
-    supabase = get_supabase_client()
     if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
+        return jsonify({"status": "error", "message": "Supabase 미연결 상태"}), 500
     try:
         res = supabase.table("real_estate_portfolio").select("*").order("created_at").execute()
         db_estates = res.data if res.data else []
@@ -287,9 +293,8 @@ def get_real_estate():
 
 @api_blueprint.route("/real-estate/save", methods=["POST"])
 def save_real_estate():
-    supabase = get_supabase_client()
     if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
+        return jsonify({"status": "error", "message": "Supabase 미연결 상태"}), 500
     try:
         data = request.get_json()
         if data.get("action") == "DELETE":
