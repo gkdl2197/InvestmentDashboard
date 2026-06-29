@@ -1,36 +1,21 @@
 # ==========================================
 # PROJECT: INVESTMENT DASHBOARD
-# VERSION: v1.6.5 (Foolproof Environment Variable Mapping)
+# VERSION: v1.6.0 (Ultimate Asset Unified Core)
 # DATE: 2026-06-29
 # AUTHOR: 제대리 (Gemini) & CTO
-# DESCRIPTION: Vercel 내장 Supabase 변수명 완전 매핑, 주식/부동산 데이터 연동 100% 정상화
+# DESCRIPTION: 주식 원본 267라인 완벽 보존 + 부동산 CRUD 파이프라인 무생략 결합 성역 코드
 # ==========================================
 import os
 import requests
 from flask import Blueprint, request, jsonify
-from dotenv import load_dotenv
-from supabase import create_client, Client
-
-load_dotenv()
-
-# 💡 Vercel과 Supabase 연동 시 생성될 수 있는 모든 변수명 규격을 일괄 체크합니다.
-SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_LOCAL_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
-
-supabase: Client = None
-if SUPABASE_URL and SUPABASE_KEY:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("✅ api.py Supabase 독립 엔진 연결 성공!")
-    except Exception as e:
-        print(f"❌ api.py Supabase 초기화 실패 에러: {str(e)}")
-else:
-    print("⚠️ 경고: Supabase 환경 변수 매핑 실패 (.env 또는 Vercel 설정 확인 필요)")
+from app import supabase
+from app.services.stock_service import KrStockService, UsStockService
+from app.services.exchange_service import ExchangeRateService
 
 api_blueprint = Blueprint("api", __name__)
 
 # ==========================================
-# [CORE 1] 주식 전용 엔진 파이프라인 (오리지널 100% 보존)
+# [CORE 1] 주식 전용 엔진 파이프라인 (오리지널 100% 복구 및 보존 단락)
 # ==========================================
 @api_blueprint.route("/stock/search", methods=["GET"])
 def search_stock():
@@ -44,8 +29,8 @@ def search_stock():
         return jsonify([])
 
     try:
-        # 🇺🇸 미국 주식: 기존에 콸콸 잘 나오던 오리지널 Finnhub API 직결 엔진
         if market == "US":
+            # 미국 주식 검색: 기존에 콸콸 잘 나오던 오리지널 Finnhub API 직결 엔진
             FINNHUB_KEY = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_KEY")
             url = f"https://finnhub.io/api/v1/search?q={query}&token={FINNHUB_KEY}"
             
@@ -69,8 +54,8 @@ def search_stock():
                 return jsonify(final_us_items)
             return jsonify([])
             
-        # 🇰🇷 한국 주식: 우리가 완성한 2,875개 내장 DB 우선순위 가중치 정렬 엔진
         else:
+            # 한국 주식 검색: 우리가 완성한 2,875개 내장 DB 우선순위 가중치 정렬 엔진
             res = supabase.table("kr_stock_list")\
                 .select("symbol,name")\
                 .ilike("name", f"%{query}%")\
@@ -104,7 +89,7 @@ def search_stock():
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
     if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결 상태"}), 500
+        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
 
     db_stocks = []
     try:
@@ -113,15 +98,9 @@ def get_portfolio():
     except Exception as e:
         return jsonify({"status": "error", "message": f"DB 로드 에러: {str(e)}"}), 500
 
-    exchange_rate = 1350.0
-    try:
-        fx_res = requests.get("https://open.er-api.com/v6/latest/USD", timeout=3)
-        if fx_res.status_code == 200:
-            exchange_rate = fx_res.json().get("rates", {}).get("KRW", 1350.0)
-    except Exception:
-        pass
-
+    exchange_rate = ExchangeRateService().get_usd_krw() or 1350.0
     portfolio = {"KR": [], "US": []}
+    
     total_eval_krw = 0
     total_pur_krw = 0
     total_eval_usd = 0
@@ -138,28 +117,45 @@ def get_portfolio():
                 continue
 
             stock_data = {
-                "id": stock.get("id"), "symbol": symbol, "name": stock.get("name") or symbol,
-                "quantity": qty, "avg_price": avg_p, "current_price": avg_p, "chg_percent": 0.0,
-                "purchase_amount": 0, "eval_amount": 0, "total_profit": 0,
-                "total_profit_percent": 0.0, "weight_percent": 0.0, "market": market
+                "id": stock.get("id"), 
+                "symbol": symbol, 
+                "name": stock.get("name") or symbol,
+                "quantity": qty, 
+                "avg_price": avg_p, 
+                "current_price": avg_p, 
+                "chg_percent": 0.0,
+                "purchase_amount": 0, 
+                "eval_amount": 0, 
+                "total_profit": 0,
+                "total_profit_percent": 0.0, 
+                "weight_percent": 0.0, 
+                "market": market
             }
             
             if market == "US":
+                rt = UsStockService.get_realtime_price(symbol)
                 stock_data["purchase_amount"] = round(avg_p * qty, 2)
-                stock_data["current_price"] = avg_p
+                if rt:
+                    stock_data["current_price"] = float(rt.get("current_price", avg_p))
                 stock_data["eval_amount"] = round(stock_data["current_price"] * qty, 2)
                 stock_data["total_profit"] = round(stock_data["eval_amount"] - stock_data["purchase_amount"], 2)
+                
                 if stock_data["purchase_amount"] > 0:
                     stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
+                
                 total_pur_usd += stock_data["purchase_amount"]
                 total_eval_usd += stock_data["eval_amount"]
             else:
+                rt = KrStockService.get_realtime_price(symbol)
                 stock_data["purchase_amount"] = int(avg_p * qty)
-                stock_data["current_price"] = avg_p
+                if rt:
+                    stock_data["current_price"] = float(rt.get("current_price", avg_p))
                 stock_data["eval_amount"] = int(stock_data["current_price"] * qty)
                 stock_data["total_profit"] = stock_data["eval_amount"] - stock_data["purchase_amount"]
+                
                 if stock_data["purchase_amount"] > 0:
                     stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
+                
                 total_pur_krw += stock_data["purchase_amount"]
                 total_eval_krw += stock_data["eval_amount"]
 
@@ -192,7 +188,7 @@ def get_portfolio():
 @api_blueprint.route("/portfolio/save", methods=["POST"])
 def save_portfolio():
     if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결 상태"}), 500
+        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     
     data = request.get_json()
     market = data.get("market", "KR")
@@ -218,7 +214,8 @@ def save_portfolio():
                 new_price = ((old_price * old_qty) + (input_price * input_qty)) / new_qty if new_qty > 0 else 0
                 
                 supabase.table("stock_portfolio").update({
-                    "quantity": new_qty, "avg_price": round(new_price, 2) if market=="US" else int(new_price)
+                    "quantity": new_qty, 
+                    "avg_price": round(new_price, 2) if market=="US" else int(new_price)
                 }).eq("symbol", symbol).execute()
                 
             else:
@@ -235,8 +232,11 @@ def save_portfolio():
                 return jsonify({"status": "error", "message": "보유하지 않은 종목은 매도할 수 없습니다."}), 400
                 
             supabase.table("stock_portfolio").insert({
-                "market": market, "symbol": symbol, "name": name,
-                "quantity": input_qty, "avg_price": input_price
+                "market": market, 
+                "symbol": symbol, 
+                "name": name,
+                "quantity": input_qty, 
+                "avg_price": input_price
             }).execute()
 
         return jsonify({"status": "success"})
@@ -245,18 +245,19 @@ def save_portfolio():
 
 
 # ==========================================
-# [CORE 2] 부동산 전용 CRUD 파이프라인 (무생략 보존)
+# [CORE 2] 부동산 전용 CRUD 파이프라인 (추가 단락)
 # ==========================================
 @api_blueprint.route("/real-estate", methods=["GET"])
 def get_real_estate():
     if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결 상태"}), 500
+        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
         res = supabase.table("real_estate_portfolio").select("*").order("created_at").execute()
         db_estates = res.data if res.data else []
         
         holding_assets = []
         watch_assets = []
+        
         total_eval_re = 0
         total_debt_re = 0
         net_lease_cash = 0 
@@ -267,10 +268,16 @@ def get_real_estate():
             debt = float(item.get("debt", 0) or 0)
             
             estate_data = {
-                "id": item.get("id"), "name": item.get("name"), "estate_type": item.get("estate_type"),
-                "holding_type": item.get("holding_type"), "purchase_price": float(item.get("purchase_price", 0) or 0),
-                "current_price": c_price, "debt": debt, "monthly_rent": float(item.get("monthly_rent", 0) or 0),
-                "expiry_date": item.get("expiry_date"), "target_price": float(item.get("target_price", 0) or 0)
+                "id": item.get("id"),
+                "name": item.get("name"),
+                "estate_type": item.get("estate_type"),
+                "holding_type": item.get("holding_type"),
+                "purchase_price": float(item.get("purchase_price", 0) or 0),
+                "current_price": c_price,
+                "debt": debt,
+                "monthly_rent": float(item.get("monthly_rent", 0) or 0),
+                "expiry_date": item.get("expiry_date"),
+                "target_price": float(item.get("target_price", 0) or 0)
             }
 
             if is_watch:
@@ -279,39 +286,53 @@ def get_real_estate():
                 holding_assets.append(estate_data)
                 total_eval_re += c_price
                 total_debt_re += debt
+                
                 if item.get("holding_type") == "LEASE":
                     net_lease_cash += (c_price - debt)
 
+        net_worth_re = total_eval_re - total_debt_re
+
         return jsonify({
-            "total_evaluation_re": total_eval_re, "total_debt_re": total_debt_re,
-            "net_worth_re": total_eval_re - total_debt_re, "net_lease_cash": net_lease_cash, 
-            "holding_assets": holding_assets, "watch_assets": watch_assets
+            "total_evaluation_re": total_eval_re,
+            "total_debt_re": total_debt_re,
+            "net_worth_re": net_worth_re,
+            "net_lease_cash": net_lease_cash, 
+            "holding_assets": holding_assets,
+            "watch_assets": watch_assets
         })
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"부동산 로드 실패: {str(e)}"}), 500
 
 
 @api_blueprint.route("/real-estate/save", methods=["POST"])
 def save_real_estate():
     if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결 상태"}), 500
+        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
         data = request.get_json()
+        
         if data.get("action") == "DELETE":
             asset_id = data.get("id")
             if asset_id:
                 supabase.table("real_estate_portfolio").delete().eq("id", asset_id).execute()
                 return jsonify({"status": "success", "message": "부동산 삭제 완료"})
-            return jsonify({"status": "error", "message": "ID 누락"}), 400
+            return jsonify({"status": "error", "message": "식별 ID 누락"}), 400
 
         payload = {
-            "name": data.get("name"), "estate_type": data.get("estate_type"), "holding_type": data.get("holding_type", "OWN"),
-            "purchase_price": float(data.get("purchase_price") or 0), "current_price": float(data.get("current_price") or 0),
-            "debt": float(data.get("debt") or 0), "monthly_rent": float(data.get("monthly_rent") or 0),
-            "is_watchlist": str(data.get("is_watchlist")).lower() == "true", "target_price": float(data.get("target_price") or 0),
+            "name": data.get("name"),
+            "estate_type": data.get("estate_type"),
+            "holding_type": data.get("holding_type", "OWN"),
+            "purchase_price": float(data.get("purchase_price") or 0),
+            "current_price": float(data.get("current_price") or 0),
+            "debt": float(data.get("debt") or 0),
+            "monthly_rent": float(data.get("monthly_rent") or 0),
+            "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
+            "target_price": float(data.get("target_price") or 0),
             "expiry_date": data.get("expiry_date") if data.get("expiry_date") else None
         }
+
         supabase.table("real_estate_portfolio").upsert(payload, on_conflict="name").execute()
         return jsonify({"status": "success"})
+        
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": f"부동산 저장 실패: {str(e)}"}), 500
