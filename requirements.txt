@@ -20,3 +20,5 @@ SQLAlchemy==2.0.31
 Flask-CORS==4.0.0
 supabase==2.5.1
 beautifulsoup4==4.12.3
+financeDataReader
+pandas
