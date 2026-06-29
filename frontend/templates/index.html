@@ -110,7 +110,6 @@
                         <i class="fa-solid fa-plus-minus text-indigo-500"></i>
                         <span>포트폴리오 자산 변경</span>
                     </h3>
-                    
                     <div class="space-y-4">
                         <div>
                             <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">시장 구분</label>
@@ -119,7 +118,6 @@
                                 <button id="market-us-btn" onclick="setMarket('US')" class="py-2.5 px-4 bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 font-medium rounded-xl text-sm text-center transition">미국 (US)</button>
                             </div>
                         </div>
-
                         <div class="relative">
                             <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">종목 검색</label>
                             <div class="relative">
@@ -128,7 +126,6 @@
                             </div>
                             <div id="search-results-dropdown" class="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto hidden z-50"></div>
                         </div>
-
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">거래 수량</label>
@@ -139,7 +136,6 @@
                                 <input type="number" id="tx-price" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:bg-white transition">
                             </div>
                         </div>
-
                         <div class="grid grid-cols-2 gap-3 pt-2">
                             <button onclick="submitTransaction('BUY')" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm">매수 등록</button>
                             <button onclick="submitTransaction('SELL')" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm">매도 등록</button>
@@ -169,7 +165,6 @@
                         <button id="tab-us-btn" onclick="switchTableTab('US')" class="px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition">해외 주식 (US)</button>
                     </div>
                 </div>
-
                 <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -186,8 +181,7 @@
                                 <th class="py-3 px-6 text-center">관리</th>
                             </tr>
                         </thead>
-                        <tbody id="portfolio-table-body" class="text-sm text-slate-600 divide-y divide-slate-100">
-                            </tbody>
+                        <tbody id="portfolio-table-body" class="text-sm text-slate-600 divide-y divide-slate-100"></tbody>
                     </table>
                 </div>
             </div>
@@ -196,32 +190,32 @@
         <div id="section-re" class="hidden">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">총 부동산 평가액</p>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">총 보유 부동산 시세 총액</p>
                     <p class="text-2xl font-bold text-slate-800 mt-2" id="re-total-eval">₩0</p>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">총 대출/임대 보증금</p>
-                    <p class="text-2xl font-bold text-slate-800 mt-2 text-blue-600" id="re-total-debt">₩0</p>
-                </div>
-                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm bg-gradient-to-br from-indigo-50/50 to-white border-indigo-100">
-                    <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider">부동산 순자산</p>
-                    <p class="text-2xl font-bold text-indigo-700 mt-2" id="re-net-worth">₩0</p>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">총 금융권 대출금</p>
+                    <p class="text-2xl font-bold text-slate-800 mt-2 text-rose-500" id="re-total-debt">₩0</p>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">전세 레버리지 묶인 현금</p>
-                    <p class="text-2xl font-bold text-slate-800 mt-2 font-mono" id="re-net-lease">₩0</p>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">반환받을 전세 보증금 총액</p>
+                    <p class="text-2xl font-bold text-slate-800 mt-2 text-amber-500" id="re-total-deposit">₩0</p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm bg-gradient-to-br from-indigo-50/50 to-white border-indigo-100">
+                    <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider">부동산 부문 실제 내 순자산</p>
+                    <p class="text-2xl font-bold text-indigo-700 mt-2 font-mono" id="re-net-worth">₩0</p>
                 </div>
             </div>
 
             <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-8">
                 <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center space-x-2">
                     <i class="fa-solid fa-house-medical text-indigo-600"></i>
-                    <span>신규 부동산 자산 등록 및 관리</span>
+                    <span>부동산 자산 및 전세 거주 등록</span>
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">매물명/자산 닉네임</label>
-                        <input type="text" id="re-name" placeholder="예: 은마아파트 84㎡" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">매물명/거주지 명칭</label>
+                        <input type="text" id="re-name" placeholder="예: 판교 푸르지오 전세" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">자산 유형</label>
@@ -229,60 +223,64 @@
                             <option value="APT">아파트 / 주상복합</option>
                             <option value="OFFICETEL">오피스텔</option>
                             <option value="BUILDING">상가 / 꼬마빌딩</option>
-                            <option value="LAND">토지</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">보유 형태</label>
-                        <select id="re-holding" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
-                            <option value="OWN">실거주 / 자가보유</option>
-                            <option value="LEASE">전세 끼고 갭투자 (임대)</option>
-                            <option value="MONTHLY">월세 세입자 배치 (임대)</option>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">보유/거주 형태</label>
+                        <select id="re-holding" onchange="toggleReInputs()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
+                            <option value="OWN">실거주 (자가 소유 매수)</option>
+                            <option value="TENANT_LEASE">전세 거주 (세입자 임차)</option>
+                            <option value="LEASE">갭투자 / 전세 끼고 매수 (집주인)</option>
+                            <option value="MONTHLY">월세 내는 임대수익 목적 (집주인)</option>
                         </select>
                     </div>
-                    <div>
+                    <div id="re-pur-price-wrapper">
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">최초 매입 금액 (원)</label>
                         <input type="number" id="re-pur-price" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">현재 시세 / 감정가 (원)</label>
+                    <div id="re-curr-price-wrapper">
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">현재 시세 (원)</label>
                         <input type="number" id="re-curr-price" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">대출금 / 전세 보증금 (원)</label>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5" id="re-debt-label">금융권 대출금 (원)</label>
                         <input type="number" id="re-debt" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
-                    <div>
+                    <div id="re-deposit-wrapper">
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5" id="re-deposit-label">내가 낸 전세 보증금 (원)</label>
+                        <input type="number" id="re-deposit" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div id="re-rent-wrapper">
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">월세 수입 (원/월)</label>
                         <input type="number" id="re-rent" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
-                    <div class="flex items-end">
-                        <button onclick="submitRealEstate()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm">부동산 자산 등록</button>
+                    <div class="flex items-end justify-end md:col-span-4 pt-2">
+                        <button onclick="submitRealEstate()" class="w-64 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm">부동산 정보 등록</button>
                     </div>
                 </div>
             </div>
 
             <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
                 <div class="px-6 py-4 border-b border-slate-100">
-                    <h3 class="text-base font-bold text-slate-900">실물 부동산 자산 보유 현황 명세</h3>
+                    <h3 class="text-base font-bold text-slate-900">실물 부동산 및 임차 자산 현황 명세</h3>
                 </div>
                 <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-semibold text-xs tracking-wider uppercase">
-                                <th class="py-3 px-6">매물명</th>
+                                <th class="py-3 px-6">매물/거주지명</th>
                                 <th class="py-3 px-6">유형</th>
-                                <th class="py-3 px-6">보유 형태</th>
+                                <th class="py-3 px-6">보유/거주 형태</th>
                                 <th class="py-3 px-6 text-right">최초 매입가</th>
-                                <th class="py-3 px-6 text-right">현재 평가액</th>
-                                <th class="py-3 px-6 text-right">대출 / 보증금</th>
+                                <th class="py-3 px-6 text-right">현재 시세/보증금</th>
+                                <th class="py-3 px-6 text-right">대출금</th>
+                                <th class="py-3 px-6 text-right">임대 보증금</th>
                                 <th class="py-3 px-6 text-right">월세 수입</th>
                                 <th class="py-3 px-6 text-right">평가 손익</th>
                                 <th class="py-3 px-6 text-center">관리</th>
                             </tr>
                         </thead>
-                        <tbody id="re-table-body" class="text-sm text-slate-600 divide-y divide-slate-100">
-                            </tbody>
+                        <tbody id="re-table-body" class="text-sm text-slate-600 divide-y divide-slate-100"></tbody>
                     </table>
                 </div>
             </div>
@@ -294,18 +292,18 @@
         let currentTableTab = 'KR';
         let selectedStock = null;
         let globalPortfolioData = null;
-        let currentMainTab = 'STOCK'; // 기본 탭 설정
+        let currentMainTab = 'STOCK';
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchPortfolioData();
             fetchRealEstateData();
+            toggleReInputs();
             setInterval(() => {
                 if(currentMainTab === 'STOCK') fetchPortfolioData();
                 if(currentMainTab === 'RE') fetchRealEstateData();
             }, 15000);
         });
 
-        // 💡 상단 대분류 메인 탭 네비게이션 관리 엔진
         function switchMainTab(tab) {
             currentMainTab = tab;
             const stockTabBtn = document.getElementById('main-tab-stock');
@@ -334,10 +332,34 @@
             }
         }
 
+        // 💡 거주/보유 형태 선택에 따라 UI 인풋 라벨 및 활성화 여부를 동적으로 제어하는 엔진
+        function toggleReInputs() {
+            const holding = document.getElementById('re-holding').value;
+            const purWrapper = document.getElementById('re-pur-price-wrapper');
+            const currWrapper = document.getElementById('re-curr-price-wrapper');
+            const depositLabel = document.getElementById('re-deposit-label');
+            const debtLabel = document.getElementById('re-debt-label');
+            const rentWrapper = document.getElementById('re-rent-wrapper');
+
+            if (holding === 'TENANT_LEASE') {
+                // 전세 거주 세입자 모드일 때 매입가/시세 숨김 처리
+                purWrapper.classList.add('hidden');
+                currWrapper.classList.add('hidden');
+                rentWrapper.classList.add('hidden');
+                depositLabel.innerText = "내가 낸 전세 보증금 (원)";
+                debtLabel.innerText = "전세 자금 대출금 (원)";
+            } else {
+                purWrapper.classList.remove('hidden');
+                currWrapper.classList.remove('hidden');
+                rentWrapper.classList.remove('hidden');
+                depositLabel.innerText = "세입자에게 받은 보증금 (원)";
+                debtLabel.innerText = "금융권 대출금 (원)";
+            }
+        }
+
         // ==========================================
         // [CORE SCRIPT 1] 주식 대시보드 비즈니스 로직
         // ==========================================
-
         function setMarket(market) {
             currentMarket = market;
             const krBtn = document.getElementById('market-kr-btn');
@@ -412,7 +434,6 @@
             } catch (e) { alert("통신 장애 발생"); }
         }
 
-        // 💡 [정밀 수술 완료] 테이블 아이템 영구 삭제 연동 함수
         async function deleteStock(symbol, name) {
             if (!confirm(`[경고] 정말로 ${name} (${symbol}) 종목을 포트폴리오 명세에서 영구 삭제하시겠습니까?`)) return;
             try {
@@ -533,24 +554,53 @@
             }).join('');
         }
 
-
         // ==========================================
-        // [CORE SCRIPT 2] 부동산 대시보드 비즈니스 로직 (신규 결합)
+        // [CORE SCRIPT 2] 부동산 대시보드 비즈니스 로직 (세입자 전세 고도화)
         // ==========================================
-
         async function fetchRealEstateData() {
             try {
                 const response = await fetch('/api/real-estate');
                 const data = await response.json();
                 if (data.status === 'error') return;
 
-                // 매트릭스 수치 업데이트
-                document.getElementById('re-total-eval').innerText = `₩${data.total_evaluation_re.toLocaleString()}`;
-                document.getElementById('re-total-debt').innerText = `₩${data.total_debt_re.toLocaleString()}`;
-                document.getElementById('re-net-worth').innerText = `₩${data.net_worth_re.toLocaleString()}`;
-                document.getElementById('re-net-lease').innerText = `₩${data.net_lease_cash.toLocaleString()}`;
+                let total_estate_market = 0; // 내가 소유한 부동산의 시세 총액
+                let total_loans = 0;         // 대출 총액
+                let total_my_deposits = 0;   // 내가 돌려받을 세입자 전세 보증금 총액
+                let total_tenant_deposits = 0; // 갭투자 시 세입자에게 돌려줘야 할 보증금 총액
+                
+                let raw_holding_assets = data.holding_assets || [];
 
-                renderRealEstateTable(data.holding_assets);
+                raw_holding_assets.forEach(asset => {
+                    const debt = parseFloat(asset.debt || 0);
+                    const rent_or_deposit = parseFloat(asset.monthly_rent || 0);
+                    const c_price = parseFloat(asset.current_price || 0);
+
+                    if (asset.holding_type === 'TENANT_LEASE') {
+                        // 💡 세입자 전세 거주일 때: 집 시세는 내 자산이 아님. 보증금이 내 자산!
+                        total_my_deposits += rent_or_deposit;
+                        total_loans += debt; // 전세 자금 대출
+                    } else if (asset.holding_type === 'LEASE') {
+                        // 집주인 갭투자일 때: 집 시세는 내 자산, 세입자 보증금은 내 부채!
+                        total_estate_market += c_price;
+                        total_loans += debt;
+                        total_tenant_deposits += rent_or_deposit; 
+                    } else {
+                        // 일반 자가 실거주 / 월세 임대일 때
+                        total_estate_market += c_price;
+                        total_loans += debt;
+                    }
+                });
+
+                // 💡 상단 요약 매트릭스 수식 전격 업데이트
+                document.getElementById('re-total-eval').innerText = `₩${total_estate_market.toLocaleString()}`;
+                document.getElementById('re-total-debt').innerText = `₩${total_loans.toLocaleString()}`;
+                document.getElementById('re-total-deposit').innerText = `₩${total_my_deposits.toLocaleString()}`;
+                
+                // 💡 진짜 내 부동산 부문 순자산 = (소유한 집 시세 - 은행대출 - 돌려줄보증금) + 내가 세입자로 돌려받을 전세금 - 내 전세대출
+                let final_net_worth = (total_estate_market - total_loans - total_tenant_deposits) + total_my_deposits;
+                document.getElementById('re-net-worth').innerText = `₩${final_net_worth.toLocaleString()}`;
+
+                renderRealEstateTable(raw_holding_assets);
             } catch (e) { console.error("부동산 데이터 로딩 실패", e); }
         }
 
@@ -558,29 +608,42 @@
             const name = document.getElementById('re-name').value.trim();
             const estate_type = document.getElementById('re-type').value;
             const holding_type = document.getElementById('re-holding').value;
-            const purchase_price = parseFloat(document.getElementById('re-pur-price').value) || 0;
-            const current_price = parseFloat(document.getElementById('re-curr-price').value) || 0;
+            
+            let purchase_price = parseFloat(document.getElementById('re-pur-price').value) || 0;
+            let current_price = parseFloat(document.getElementById('re-curr-price').value) || 0;
             const debt = parseFloat(document.getElementById('re-debt').value) || 0;
+            const deposit = parseFloat(document.getElementById('re-deposit').value) || 0;
             const monthly_rent = parseFloat(document.getElementById('re-rent').value) || 0;
 
-            if (!name) { alert("매물명을 입력해 주십시오."); return; }
+            if (!name) { alert("매물 또는 거주지 명칭을 입력해 주십시오."); return; }
+
+            // 💡 세입자 전세 거주일 때의 전용 데이터 파이프 연동 처리
+            let target_rent_field = monthly_rent;
+            if (holding_type === 'TENANT_LEASE') {
+                purchase_price = 0;
+                current_price = deposit; // 세입자 모드일 때는 보증금 자체를 가상 시세 필드로 치환
+                target_rent_field = deposit; // 보증금을 백엔드 monthly_rent 필드로 안전하게 우회 전달
+            } else if (holding_type === 'LEASE') {
+                target_rent_field = deposit; // 갭투자일 때 세입자 보증금을 전달
+            }
 
             try {
                 const res = await fetch('/api/real-estate/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        name, estate_type, holding_type, purchase_price, current_price, debt, monthly_rent
+                        name, estate_type, holding_type, purchase_price, current_price, 
+                        debt, monthly_rent: target_rent_field
                     })
                 });
                 const result = await res.json();
                 if (result.status === 'success') {
-                    alert("부동산 자산이 등록되었습니다.");
-                    // 인풋 클리어
+                    alert("성공적으로 등록되었습니다.");
                     document.getElementById('re-name').value = '';
                     document.getElementById('re-pur-price').value = '';
                     document.getElementById('re-curr-price').value = '';
                     document.getElementById('re-debt').value = '';
+                    document.getElementById('re-deposit').value = '';
                     document.getElementById('re-rent').value = '';
                     fetchRealEstateData();
                 } else { alert(`등록 실패: ${result.message}`); }
@@ -588,7 +651,7 @@
         }
 
         async function deleteRealEstate(id) {
-            if (!confirm("선택한 부동산 자산을 영구 삭제하시겠습니까?")) return;
+            if (!confirm("해당 부동산/거주지 명세를 영구 삭제하시겠습니까?")) return;
             try {
                 const res = await fetch('/api/real-estate/save', {
                     method: 'POST',
@@ -604,30 +667,52 @@
         function renderRealEstateTable(assets) {
             const tbody = document.getElementById('re-table-body');
             if (!assets || assets.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">등록된 실물 부동산 자산이 없습니다.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-slate-400">등록된 부동산 또는 임차 현황 내역이 없습니다.</td></tr>`;
                 return;
             }
 
             const typeMap = { 'APT': '아파트', 'OFFICETEL': '오피스텔', 'BUILDING': '상가빌딩', 'LAND': '토지' };
-            const holdMap = { 'OWN': '자가보유', 'LEASE': '갭투자', 'MONTHLY': '월세임대' };
+            const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주(세입자)', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대(집주인)' };
 
             tbody.innerHTML = assets.map(item => {
-                const profit = item.current_price - item.purchase_price;
-                const profitSign = profit > 0 ? '+' : '';
-                const profitClass = profit > 0 ? 'text-rose-600 font-medium' : profit < 0 ? 'text-blue-600 font-medium' : 'text-slate-500';
-                
+                let displayPurPrice = `₩${item.purchase_price.toLocaleString()}`;
+                let displayCurrPrice = `₩${item.current_price.toLocaleString()}`;
+                let displayDebt = `₩${item.debt.toLocaleString()}`;
+                let displayDeposit = '₩0';
+                let displayRent = '₩0';
+                let displayProfit = item.current_price - item.purchase_price;
+
+                if (item.holding_type === 'TENANT_LEASE') {
+                    // 세입자 모드일 때 테이블 행 텍스트 최적화 파싱
+                    displayPurPrice = "-";
+                    displayCurrPrice = `₩${item.monthly_rent.toLocaleString()}`; // 보증금 표시
+                    displayDebt = `₩${item.debt.toLocaleString()}`; // 전세대출금
+                    displayDeposit = "-";
+                    displayRent = "-";
+                    displayProfit = 0; // 전세 자금은 시세 차익이 없음
+                } else if (item.holding_type === 'LEASE') {
+                    displayDeposit = `₩${item.monthly_rent.toLocaleString()}`;
+                } else if (item.holding_type === 'MONTHLY') {
+                    displayRent = `₩${item.monthly_rent.toLocaleString()}`;
+                }
+
+                const profitSign = displayProfit > 0 ? '+' : '';
+                const profitClass = displayProfit > 0 ? 'text-rose-600 font-medium' : displayProfit < 0 ? 'text-blue-600 font-medium' : 'text-slate-400';
+                const finalProfitText = displayProfit === 0 ? "-" : `${profitSign}₩${displayProfit.toLocaleString()}`;
+
                 return `
                     <tr class="hover:bg-slate-50/80 transition duration-150">
                         <td class="py-3.5 px-6 font-semibold text-slate-800">${item.name}</td>
                         <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-slate-100 rounded-md text-xs font-medium text-slate-600">${typeMap[item.estate_type] || item.estate_type}</span></td>
                         <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-indigo-50 rounded-md text-xs font-medium text-indigo-600">${holdMap[item.holding_type] || item.holding_type}</span></td>
-                        <td class="py-3.5 px-6 text-right font-mono text-xs">₩${item.purchase_price.toLocaleString()}</td>
-                        <td class="py-3.5 px-6 text-right font-semibold text-slate-700 font-mono text-xs">₩${item.current_price.toLocaleString()}</td>
-                        <td class="py-3.5 px-6 text-right text-blue-600 font-mono text-xs">₩${item.debt.toLocaleString()}</td>
-                        <td class="py-3.5 px-6 text-right text-emerald-600 font-mono text-xs">₩${item.monthly_rent.toLocaleString()}</td>
-                        <td class="py-3.5 px-6 text-right font-mono text-xs ${profitClass}">${profitSign}₩${profit.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right font-mono text-xs text-slate-400">${displayPurPrice}</td>
+                        <td class="py-3.5 px-6 text-right font-semibold text-slate-700 font-mono text-xs">${displayCurrPrice}</td>
+                        <td class="py-3.5 px-6 text-right text-rose-500 font-mono text-xs">${displayDebt}</td>
+                        <td class="py-3.5 px-6 text-right text-amber-600 font-mono text-xs">${displayDeposit}</td>
+                        <td class="py-3.5 px-6 text-right text-emerald-600 font-mono text-xs">${displayRent}</td>
+                        <td class="py-3.5 px-6 text-right font-mono text-xs ${profitClass}">${finalProfitText}</td>
                         <td class="py-3.5 px-6 text-center">
-                            <button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition duration-150" title="부동산 자산 삭제">
+                            <button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition duration-150" title="내역 삭제">
                                 <i class="fa-solid fa-trash-can text-sm"></i>
                             </button>
                         </td>
