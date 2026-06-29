@@ -11,8 +11,9 @@ from flask import Blueprint, request, jsonify
 from dotenv import load_dotenv
 from supabase import create_client
 
-from app.services.stock_service import KrStockService, UsStockService
-from app.services.exchange_service import ExchangeRateService
+from backend.app.services.kr_stock import KrStockService
+from backend.app.services.us_stock import UsStockService
+from backend.app.services.exchange_rate import ExchangeRateService
 
 load_dotenv()
 
