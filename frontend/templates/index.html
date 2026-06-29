@@ -706,9 +706,9 @@
                         <td class="py-3.5 px-6 text-right font-mono text-xs text-slate-400">${displayPurPrice}</td>
                         <td class="py-3.5 px-6 text-right font-semibold text-slate-700 font-mono text-xs">${displayMarketPrice}</td>
                         <td class="py-3.5 px-6 text-right font-bold text-amber-600 font-mono text-xs">${displayMyDeposit}</td>
-                        <td class="py-3.5 px-6 text-right text-rose-500 font-mono text-xs">${displayDebt}</td>
+                        <td class="py-3.5 px-6 text-right text-rose-500 font-mono text-xs">₩${item.debt.toLocaleString()}</td>
                         <td class="py-3.5 px-6 text-right text-slate-500 font-mono text-xs">${displayTenantDeposit}</td>
-                        <td class="py-3.5 px-6 text-right text-emerald-600 font-mono text-xs">${displayRent}</td>
+                        <td class="py-3.5 px-6 text-right text-emerald-600 font-mono text-xs">₩${displayRent.toLocaleString()}</td>
                         <td class="py-3.5 px-6 text-right font-mono text-xs ${profitClass}">${finalProfitText}</td>
                         <td class="py-3.5 px-6 text-center">
                             <button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition duration-150" title="내역 삭제">
