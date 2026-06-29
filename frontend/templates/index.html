@@ -158,8 +158,8 @@
                     <h3 class="text-base font-bold text-slate-900">보유 자산 상세 정보 명세</h3>
                 </div>
                 <div class="bg-slate-100 p-1 rounded-xl flex space-x-1 self-start sm:self-center">
-                    <button id="tab-kr-btn" onclick="switchTableTab('KR')" class="px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition">국내 자산 (KR)</button>
-                    <button id="tab-us-btn" onclick="switchTableTab('US')" class="px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition">해외 자산 (US)</button>
+                    <button id="tab-kr-btn" onclick="switchTableTab('KR')" class="px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition">국내 주식 (KR)</button>
+                    <button id="tab-us-btn" onclick="switchTableTab('US')" class="px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition">해외 주식 (US)</button>
                 </div>
             </div>
 
@@ -198,8 +198,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchPortfolioData();
-            // 20초마다 백엔드 갱신 자동 틱 가동
-            setInterval(fetchPortfolioData, 20000);
+            setInterval(fetchPortfolioData, 15000); // 15초 자동 새로고침 틱
         });
 
         function setMarket(market) {
@@ -261,7 +260,7 @@
 
         async function submitTransaction(txType) {
             if (!selectedStock) {
-                alert("종목 검색을 통해 종목을 먼저 지정해 주십시오.");
+                alert("종목을 먼저 검색하여 선택해 주십시오.");
                 return;
             }
             const qty = parseFloat(document.getElementById('tx-quantity').value);
@@ -299,7 +298,7 @@
                     alert(`실패: ${result.message}`);
                 }
             } catch (e) {
-                alert("서버 통신 중 장애가 발생했습니다.");
+                alert("서버 통신 장애가 발생했습니다.");
             }
         }
 
@@ -318,7 +317,7 @@
                 renderPortfolioTable();
                 renderWeightVisualization(data);
             } catch (e) {
-                console.error("포트폴리오 바인딩 장애", e);
+                console.error("포트폴리오 데이터 동기화 실패", e);
             }
         }
 
@@ -328,7 +327,6 @@
             document.getElementById('total-kr-eval').innerText = `₩${data.total_evaluation_krw.toLocaleString()}`;
             document.getElementById('total-us-eval').innerText = `$${data.total_evaluation_usd.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
 
-            // 수익률 색상 매핑 매트릭스
             renderProfitLabel('total-kr-profit', 'total-kr-profit-wrapper', data.profit_rate_krw);
             renderProfitLabel('total-us-profit', 'total-us-profit-wrapper', data.profit_rate_usd);
         }
@@ -369,7 +367,7 @@
             const stocks = globalPortfolioData.portfolio[currentTableTab] || [];
 
             if (stocks.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">보유 중인 자산 내역이 존재하지 않습니다.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">보유 자산이 존재하지 않습니다.</td></tr>`;
                 return;
             }
 
@@ -401,7 +399,7 @@
             const allStocks = [...(data.portfolio.KR || []), ...(data.portfolio.US || [])];
             
             if (allStocks.length === 0) {
-                container.innerHTML = '<p class="text-sm text-slate-400 py-8 text-center">자산을 등록하시면 실시간 분산 비중 차트가 활성화됩니다.</p>';
+                container.innerHTML = '<p class="text-sm text-slate-400 py-8 text-center">자산을 등록하시면 실시간 분산 비중 분석이 활성화됩니다.</p>';
                 return;
             }
 
