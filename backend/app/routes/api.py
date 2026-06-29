@@ -23,6 +23,25 @@ api_blueprint = Blueprint(
     url_prefix="/api"
 )
 
+supabase = None
+
+try:
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_KEY")
+
+    print("SUPABASE_URL =", supabase_url)
+    print("KEY exists =", bool(supabase_key))
+
+    if supabase_url and supabase_key:
+        supabase = create_client(supabase_url, supabase_key)
+        print("✅ Supabase connected")
+    else:
+        print("❌ Environment Variable Missing")
+
+except Exception as e:
+    print("❌ create_client error")
+    print(e)
+
 # 💡 초정밀 수술: 서버리스 크래시를 원천 차단하기 위해 런타임에 안전하게 클라이언트를 반환하는 래퍼 함수를 정의합니다.
 def get_supabase_client():
     url = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
@@ -110,8 +129,12 @@ def search_stock():
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
     supabase = get_supabase_client()
-    if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
+
+    if supabase is None:
+        return jsonify({
+            "status":"error",
+            "message":"Supabase 미연결"
+        }),500
 
     db_stocks = []
     try:
