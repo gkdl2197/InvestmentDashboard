@@ -8,26 +8,32 @@
 import os
 import requests
 from flask import Blueprint, request, jsonify, current_app
-
-# 💡 핵심 교정: ModuleNotFoundError를 유발하는 'from app'을 버리고 무결한 backend 패스로 우회합니다.
 from backend.app.services.kr_stock import KrStockService
 from backend.app.services.us_stock import UsStockService
 from backend.app.services.exchange_rate import ExchangeRateService
+from dotenv import load_dotenv
+from supabase import create_client
+
+load_dotenv()
 
 api_blueprint = Blueprint("api", __name__)
 
-# 전역 scope에서 터지는 것을 막기 위해 런타임에 current_app을 통해 주입된 db 객체를 가져옵니다.
+# Supabase 클라이언트 직접 생성
+_supabase = None
 def get_supabase():
-    try:
-        from backend.app.database import db
-        return db
-    except Exception:
-        return None
+    global _supabase
+    if _supabase is None:
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_KEY")
+        if url and key:
+            _supabase = create_client(url, key)
+    return _supabase
 
 @api_blueprint.route("/stock/search", methods=["GET"])
 def search_stock():
     # 💡 런타임 바인딩으로 순환 참조 및 모듈 경로 유실 완벽 방어
-    from backend.app.database import db as supabase
+    supabase = get_supabase()
+
     if not supabase:
         return jsonify([])
 
@@ -95,7 +101,8 @@ def search_stock():
 
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
-    from backend.app.database import db as supabase
+    supabase = get_supabase()
+
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
 
@@ -195,7 +202,8 @@ def get_portfolio():
 
 @api_blueprint.route("/portfolio/save", methods=["POST"])
 def save_portfolio():
-    from backend.app.database import db as supabase
+    supabase = get_supabase()
+
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     
