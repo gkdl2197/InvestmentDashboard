@@ -31,42 +31,54 @@ def get_supabase():
 
 # 네이버 실매물 가격 트래킹 내부 헬퍼 함수
 def get_naver_real_estate_live_price(keyword):
+    """네이버 부동산 단지 검색 후 중개업소 실매물 최저가 반환 (단위: 원)"""
     try:
-        # 1단계: 매물명 키워드로 네이버 부동산 내부 단지 코드 검색
-        search_url = f"https://m.land.naver.com/api/search/searchList?keyword={requests.utils.quote(keyword)}"
         headers = {
             "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
-            "Referer": "https://m.land.naver.com/"
+            "Referer": "https://m.land.naver.com/",
+            "Accept": "application/json"
         }
+
+        # ✅ 1단계: 자동완성 API로 단지 코드 획득
+        search_url = f"https://completion.land.naver.com/ac?q={requests.utils.quote(keyword)}&re=1&vt=2"
         res = requests.get(search_url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            data = res.json()
-            result_list = data.get("result", [])
-            if not result_list:
-                return None
-            
-            # 가장 매칭 확률이 높은 첫 번째 단지 정보 파싱
-            cortar_id = result_list[0].get("cortarId")
-            bldg_id = result_list[0].get("id")
-            lat = result_list[0].get("lat")
-            lon = result_list[0].get("lng")
-            
-            if not bldg_id:
-                return None
-                
-            # 2단계: 해당 단지의 실제 중개업소 등록 매물 리스트업 (최신순/최저가순 정렬 파라미터 주입)
-            articles_url = f"https://m.land.naver.com/api/article/articleList?cortarNo={cortar_id}&complexNo={bldg_id}&tradeCd=A1&order=prc&page=1"
-            res_articles = requests.get(articles_url, headers=headers, timeout=5)
-            if res_articles.status_code == 200:
-                article_data = res_articles.json()
-                body = article_data.get("result", {}).get("list", [])
-                if body:
-                    # 최저가 순 정렬 기준으로 첫 번째 매물의 가격 획득 (단위: 억/만 원 파싱)
-                    first_item = body[0]
-                    prc_text = first_item.get("prc", 0) # 예: 150000 (15억)
-                    return float(prc_text) * 10000 # 원화 규격으로 통일 리턴
-        return None
-    except Exception:
+
+        if res.status_code != 200:
+            return None
+
+        data = res.json()
+        items = data.get("items", [[]])[0]  # 첫 번째 결과 그룹
+        if not items:
+            return None
+
+        # items[0] 구조: [단지명, 단지코드, 타입, ...]
+        bldg_id = items[0][1] if len(items[0]) > 1 else None
+        if not bldg_id:
+            return None
+
+        # ✅ 2단계: 단지 매물 리스트 조회 (최저가 정렬)
+        articles_url = (
+            f"https://m.land.naver.com/article/articleList"
+            f"?rletTypeCd=A01&tradTpCd=A1&complexNo={bldg_id}&order=prc&page=1"
+        )
+        res2 = requests.get(articles_url, headers=headers, timeout=5)
+
+        if res2.status_code != 200:
+            return None
+
+        article_data = res2.json()
+        article_list = article_data.get("result", {}).get("list", [])
+
+        if not article_list:
+            return None
+
+        # ✅ 3단계: 최저가 매물 가격 파싱 (네이버 단위: 만원)
+        first_item = article_list[0]
+        prc_raw = first_item.get("prc", 0)  # 예: 150000 (15억, 만원 단위)
+        return int(prc_raw) * 10000  # 원화 변환
+
+    except Exception as e:
+        print(f"[Naver Crawler Error] {keyword}: {e}")
         return None
 
 # ==========================================
@@ -213,7 +225,7 @@ def get_real_estate():
         total_eval_re, total_debt_re, net_lease_cash = 0, 0, 0 
 
         for item in db_estates:
-            is_watch = item.get("is_watchlist", False) or str(item.get("is_watchlist")).lower() == "true" [cite: 5, 8]
+            is_watch = item.get("is_watchlist", False) or str(item.get("is_watchlist")).lower() == "true"
             h_type = item.get("holding_type", "OWN")
             name = item.get("name")
             
@@ -245,7 +257,7 @@ def get_real_estate():
             estate_data = {
                 "id": item.get("id"), "name": name, "estate_type": item.get("estate_type"), "holding_type": h_type,
                 "purchase_price": purchase_price, "current_price": c_price, "debt": debt, "monthly_rent": monthly_rent,
-                "is_watchlist": is_watch, "target_price": float(item.get("target_price", 0) or 0) [cite: 5, 8]
+                "is_watchlist": is_watch, "target_price": float(item.get("target_price", 0) or 0) 
             }
 
             if is_watch:
@@ -257,7 +269,7 @@ def get_real_estate():
 
         return jsonify({
             "total_evaluation_re": total_eval_re, "total_debt_re": total_debt_re, "net_worth_re": total_eval_re - total_debt_re,
-            "net_lease_cash": net_lease_cash, "holding_assets": holding_assets, "watch_assets": watch_assets [cite: 5, 8]
+            "net_lease_cash": net_lease_cash, "holding_assets": holding_assets, "watch_assets": watch_assets 
         })
     except Exception as e: return jsonify({"status": "error", "message": f"부동산 로드 실패: {str(e)}"}), 500
 
@@ -281,7 +293,7 @@ def save_real_estate():
             "debt": float(data.get("debt") or 0),
             "monthly_rent": float(data.get("monthly_rent") or 0),
             "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
-            "target_price": float(data.get("target_price") or 0) [cite: 5, 8]
+            "target_price": float(data.get("target_price") or 0) 
         }
 
         existing = supabase.table("real_estate_portfolio").select("id").eq("name", name).execute()
