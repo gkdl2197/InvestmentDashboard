@@ -272,9 +272,10 @@
                                 <th class="py-3 px-6">유형</th>
                                 <th class="py-3 px-6">보유/거주 형태</th>
                                 <th class="py-3 px-6 text-right">최초 매입가</th>
-                                <th class="py-3 px-6 text-right">현재 시세/보증금</th>
+                                <th class="py-3 px-6 text-right text-slate-700">현재 시세</th>
+                                <th class="py-3 px-6 text-right text-amber-600">내 전세 보증금</th>
                                 <th class="py-3 px-6 text-right">대출금</th>
-                                <th class="py-3 px-6 text-right">임대 보증금</th>
+                                <th class="py-3 px-6 text-right">임대 보증금(받은돈)</th>
                                 <th class="py-3 px-6 text-right">월세 수입</th>
                                 <th class="py-3 px-6 text-right">평가 손익</th>
                                 <th class="py-3 px-6 text-center">관리</th>
@@ -332,7 +333,6 @@
             }
         }
 
-        // 💡 거주/보유 형태 선택에 따라 UI 인풋 라벨 및 활성화 여부를 동적으로 제어하는 엔진
         function toggleReInputs() {
             const holding = document.getElementById('re-holding').value;
             const purWrapper = document.getElementById('re-pur-price-wrapper');
@@ -342,7 +342,6 @@
             const rentWrapper = document.getElementById('re-rent-wrapper');
 
             if (holding === 'TENANT_LEASE') {
-                // 전세 거주 세입자 모드일 때 매입가/시세 숨김 처리
                 purWrapper.classList.add('hidden');
                 currWrapper.classList.add('hidden');
                 rentWrapper.classList.add('hidden');
@@ -493,6 +492,8 @@
             renderPortfolioTable();
         }
 
+        function borderTableTab() {}
+
         function renderPortfolioTable() {
             if (!globalPortfolioData) return;
             const tableBody = document.getElementById('portfolio-table-body');
@@ -555,7 +556,7 @@
         }
 
         // ==========================================
-        // [CORE SCRIPT 2] 부동산 대시보드 비즈니스 로직 (세입자 전세 고도화)
+        // [CORE SCRIPT 2] 부동산 대시보드 비즈니스 로직
         // ==========================================
         async function fetchRealEstateData() {
             try {
@@ -563,10 +564,10 @@
                 const data = await response.json();
                 if (data.status === 'error') return;
 
-                let total_estate_market = 0; // 내가 소유한 부동산의 시세 총액
-                let total_loans = 0;         // 대출 총액
-                let total_my_deposits = 0;   // 내가 돌려받을 세입자 전세 보증금 총액
-                let total_tenant_deposits = 0; // 갭투자 시 세입자에게 돌려줘야 할 보증금 총액
+                let total_estate_market = 0; 
+                let total_loans = 0;         
+                let total_my_deposits = 0;   
+                let total_tenant_deposits = 0; 
                 
                 let raw_holding_assets = data.holding_assets || [];
 
@@ -576,27 +577,22 @@
                     const c_price = parseFloat(asset.current_price || 0);
 
                     if (asset.holding_type === 'TENANT_LEASE') {
-                        // 💡 세입자 전세 거주일 때: 집 시세는 내 자산이 아님. 보증금이 내 자산!
                         total_my_deposits += rent_or_deposit;
-                        total_loans += debt; // 전세 자금 대출
+                        total_loans += debt; 
                     } else if (asset.holding_type === 'LEASE') {
-                        // 집주인 갭투자일 때: 집 시세는 내 자산, 세입자 보증금은 내 부채!
                         total_estate_market += c_price;
                         total_loans += debt;
                         total_tenant_deposits += rent_or_deposit; 
                     } else {
-                        // 일반 자가 실거주 / 월세 임대일 때
                         total_estate_market += c_price;
                         total_loans += debt;
                     }
                 });
 
-                // 💡 상단 요약 매트릭스 수식 전격 업데이트
                 document.getElementById('re-total-eval').innerText = `₩${total_estate_market.toLocaleString()}`;
                 document.getElementById('re-total-debt').innerText = `₩${total_loans.toLocaleString()}`;
                 document.getElementById('re-total-deposit').innerText = `₩${total_my_deposits.toLocaleString()}`;
                 
-                // 💡 진짜 내 부동산 부문 순자산 = (소유한 집 시세 - 은행대출 - 돌려줄보증금) + 내가 세입자로 돌려받을 전세금 - 내 전세대출
                 let final_net_worth = (total_estate_market - total_loans - total_tenant_deposits) + total_my_deposits;
                 document.getElementById('re-net-worth').innerText = `₩${final_net_worth.toLocaleString()}`;
 
@@ -617,14 +613,13 @@
 
             if (!name) { alert("매물 또는 거주지 명칭을 입력해 주십시오."); return; }
 
-            // 💡 세입자 전세 거주일 때의 전용 데이터 파이프 연동 처리
             let target_rent_field = monthly_rent;
             if (holding_type === 'TENANT_LEASE') {
                 purchase_price = 0;
-                current_price = deposit; // 세입자 모드일 때는 보증금 자체를 가상 시세 필드로 치환
-                target_rent_field = deposit; // 보증금을 백엔드 monthly_rent 필드로 안전하게 우회 전달
+                current_price = 0; // 💡 세입자 전세 거주일 때 집 시세는 내 자산이 아니므로 0 강제 세팅
+                target_rent_field = deposit; 
             } else if (holding_type === 'LEASE') {
-                target_rent_field = deposit; // 갭투자일 때 세입자 보증금을 전달
+                target_rent_field = deposit; 
             }
 
             try {
@@ -667,7 +662,7 @@
         function renderRealEstateTable(assets) {
             const tbody = document.getElementById('re-table-body');
             if (!assets || assets.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-slate-400">등록된 부동산 또는 임차 현황 내역이 없습니다.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-slate-400">등록된 부동산 또는 임차 현황 내역이 없습니다.</td></tr>`;
                 return;
             }
 
@@ -675,25 +670,34 @@
             const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주(세입자)', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대(집주인)' };
 
             tbody.innerHTML = assets.map(item => {
+                // 💡 [정밀 처방] 시세와 보증금의 컬럼을 완전히 분리하여 텍스트 맵핑 분기처리
                 let displayPurPrice = `₩${item.purchase_price.toLocaleString()}`;
-                let displayCurrPrice = `₩${item.current_price.toLocaleString()}`;
-                let displayDebt = `₩${item.debt.toLocaleString()}`;
-                let displayDeposit = '₩0';
-                let displayRent = '₩0';
+                let displayMarketPrice = "-"; // 시세 초기값
+                let displayMyDeposit = "-";    // 내 보증금 초기값
+                let displayTenantDeposit = "₩0"; // 집주인일 때 돌려줘야할 돈
+                let displayRent = "₩0";
                 let displayProfit = item.current_price - item.purchase_price;
 
                 if (item.holding_type === 'TENANT_LEASE') {
-                    // 세입자 모드일 때 테이블 행 텍스트 최적화 파싱
+                    // 전세 거주 세입자일 때: 집 시세는 대시를 긋고, 내 보증금 칸에만 금액 명확히 표출
                     displayPurPrice = "-";
-                    displayCurrPrice = `₩${item.monthly_rent.toLocaleString()}`; // 보증금 표시
-                    displayDebt = `₩${item.debt.toLocaleString()}`; // 전세대출금
-                    displayDeposit = "-";
+                    displayMarketPrice = "-";
+                    displayMyDeposit = `₩${item.monthly_rent.toLocaleString()}`;
+                    displayTenantDeposit = "-";
                     displayRent = "-";
-                    displayProfit = 0; // 전세 자금은 시세 차익이 없음
+                    displayProfit = 0; 
                 } else if (item.holding_type === 'LEASE') {
-                    displayDeposit = `₩${item.monthly_rent.toLocaleString()}`;
-                } else if (item.holding_type === 'MONTHLY') {
-                    displayRent = `₩${item.monthly_rent.toLocaleString()}`;
+                    // 갭투자 집주인일 때: 내 소유이므로 현재 시세가 찍히고, 임대보증금(받은돈) 칸에 찍힘
+                    displayMarketPrice = `₩${item.current_price.toLocaleString()}`;
+                    displayMyDeposit = "-";
+                    displayTenantDeposit = `₩${item.monthly_rent.toLocaleString()}`;
+                } else {
+                    // 자가 보유 실거주 / 월세임대 집주인일 때
+                    displayMarketPrice = `₩${item.current_price.toLocaleString()}`;
+                    displayMyDeposit = "-";
+                    if (item.holding_type === 'MONTHLY') {
+                        displayRent = `₩${item.monthly_rent.toLocaleString()}`;
+                    }
                 }
 
                 const profitSign = displayProfit > 0 ? '+' : '';
@@ -706,9 +710,11 @@
                         <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-slate-100 rounded-md text-xs font-medium text-slate-600">${typeMap[item.estate_type] || item.estate_type}</span></td>
                         <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-indigo-50 rounded-md text-xs font-medium text-indigo-600">${holdMap[item.holding_type] || item.holding_type}</span></td>
                         <td class="py-3.5 px-6 text-right font-mono text-xs text-slate-400">${displayPurPrice}</td>
-                        <td class="py-3.5 px-6 text-right font-semibold text-slate-700 font-mono text-xs">${displayCurrPrice}</td>
-                        <td class="py-3.5 px-6 text-right text-rose-500 font-mono text-xs">${displayDebt}</td>
-                        <td class="py-3.5 px-6 text-right text-amber-600 font-mono text-xs">${displayDeposit}</td>
+                        <td class="py-3.5 px-6 text-right font-semibold text-slate-700 font-mono text-xs">${displayMarketPrice}</td>
+                        <td class="py-3.5 px-6 text-right font-bold text-amber-600 font-mono text-xs">${displayMyDeposit}</td>
+                        
+                        <td class="py-3.5 px-6 text-right text-rose-500 font-mono text-xs">₩${item.debt.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right text-slate-500 font-mono text-xs">${displayTenantDeposit}</td>
                         <td class="py-3.5 px-6 text-right text-emerald-600 font-mono text-xs">${displayRent}</td>
                         <td class="py-3.5 px-6 text-right font-mono text-xs ${profitClass}">${finalProfitText}</td>
                         <td class="py-3.5 px-6 text-center">
