@@ -168,7 +168,7 @@
                 <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-semibold text-xs tracking-wider uppercase">
+                            <tr class="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-semibold text-xs tracking-wider uppercase whitespace-nowrap">
                                 <th class="py-3 px-6">티커/코드</th>
                                 <th class="py-3 px-6">종목명</th>
                                 <th class="py-3 px-6 text-right">보유 수량</th>
@@ -267,7 +267,7 @@
                 <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-semibold text-xs tracking-wider uppercase">
+                            <tr class="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-semibold text-xs tracking-wider uppercase whitespace-nowrap">
                                 <th class="py-3 px-6">매물/거주지명</th>
                                 <th class="py-3 px-6">유형</th>
                                 <th class="py-3 px-6">보유/거주 형태</th>
@@ -492,8 +492,6 @@
             renderPortfolioTable();
         }
 
-        function borderTableTab() {}
-
         function renderPortfolioTable() {
             if (!globalPortfolioData) return;
             const tableBody = document.getElementById('portfolio-table-body');
@@ -510,7 +508,7 @@
                 const isUS = currentTableTab === 'US';
                 
                 return `
-                    <tr class="hover:bg-slate-50/80 transition duration-150">
+                    <tr class="hover:bg-slate-50/80 transition duration-150 whitespace-nowrap">
                         <td class="py-3.5 px-6 font-mono text-xs font-semibold text-slate-400">${stock.symbol}</td>
                         <td class="py-3.5 px-6 font-medium text-slate-800">${stock.name}</td>
                         <td class="py-3.5 px-6 text-right font-medium">${stock.quantity.toLocaleString()}</td>
@@ -616,7 +614,7 @@
             let target_rent_field = monthly_rent;
             if (holding_type === 'TENANT_LEASE') {
                 purchase_price = 0;
-                current_price = 0; // 💡 세입자 전세 거주일 때 집 시세는 내 자산이 아니므로 0 강제 세팅
+                current_price = 0; 
                 target_rent_field = deposit; 
             } else if (holding_type === 'LEASE') {
                 target_rent_field = deposit; 
@@ -670,16 +668,14 @@
             const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주(세입자)', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대(집주인)' };
 
             tbody.innerHTML = assets.map(item => {
-                // 💡 [정밀 처방] 시세와 보증금의 컬럼을 완전히 분리하여 텍스트 맵핑 분기처리
                 let displayPurPrice = `₩${item.purchase_price.toLocaleString()}`;
-                let displayMarketPrice = "-"; // 시세 초기값
-                let displayMyDeposit = "-";    // 내 보증금 초기값
-                let displayTenantDeposit = "₩0"; // 집주인일 때 돌려줘야할 돈
+                let displayMarketPrice = "-"; 
+                let displayMyDeposit = "-";    
+                let displayTenantDeposit = "₩0"; 
                 let displayRent = "₩0";
                 let displayProfit = item.current_price - item.purchase_price;
 
                 if (item.holding_type === 'TENANT_LEASE') {
-                    // 전세 거주 세입자일 때: 집 시세는 대시를 긋고, 내 보증금 칸에만 금액 명확히 표출
                     displayPurPrice = "-";
                     displayMarketPrice = "-";
                     displayMyDeposit = `₩${item.monthly_rent.toLocaleString()}`;
@@ -687,12 +683,10 @@
                     displayRent = "-";
                     displayProfit = 0; 
                 } else if (item.holding_type === 'LEASE') {
-                    // 갭투자 집주인일 때: 내 소유이므로 현재 시세가 찍히고, 임대보증금(받은돈) 칸에 찍힘
                     displayMarketPrice = `₩${item.current_price.toLocaleString()}`;
                     displayMyDeposit = "-";
                     displayTenantDeposit = `₩${item.monthly_rent.toLocaleString()}`;
                 } else {
-                    // 자가 보유 실거주 / 월세임대 집주인일 때
                     displayMarketPrice = `₩${item.current_price.toLocaleString()}`;
                     displayMyDeposit = "-";
                     if (item.holding_type === 'MONTHLY') {
@@ -705,15 +699,14 @@
                 const finalProfitText = displayProfit === 0 ? "-" : `${profitSign}₩${displayProfit.toLocaleString()}`;
 
                 return `
-                    <tr class="hover:bg-slate-50/80 transition duration-150">
+                    <tr class="hover:bg-slate-50/80 transition duration-150 whitespace-nowrap">
                         <td class="py-3.5 px-6 font-semibold text-slate-800">${item.name}</td>
                         <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-slate-100 rounded-md text-xs font-medium text-slate-600">${typeMap[item.estate_type] || item.estate_type}</span></td>
                         <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-indigo-50 rounded-md text-xs font-medium text-indigo-600">${holdMap[item.holding_type] || item.holding_type}</span></td>
                         <td class="py-3.5 px-6 text-right font-mono text-xs text-slate-400">${displayPurPrice}</td>
                         <td class="py-3.5 px-6 text-right font-semibold text-slate-700 font-mono text-xs">${displayMarketPrice}</td>
                         <td class="py-3.5 px-6 text-right font-bold text-amber-600 font-mono text-xs">${displayMyDeposit}</td>
-                        
-                        <td class="py-3.5 px-6 text-right text-rose-500 font-mono text-xs">₩${item.debt.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right text-rose-500 font-mono text-xs">${displayDebt}</td>
                         <td class="py-3.5 px-6 text-right text-slate-500 font-mono text-xs">${displayTenantDeposit}</td>
                         <td class="py-3.5 px-6 text-right text-emerald-600 font-mono text-xs">${displayRent}</td>
                         <td class="py-3.5 px-6 text-right font-mono text-xs ${profitClass}">${finalProfitText}</td>
