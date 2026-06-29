@@ -1,9 +1,9 @@
 # ==========================================
 # PROJECT: INVESTMENT DASHBOARD
-# VERSION: v1.8.5 (Backend Real Estate Advanced Core)
+# VERSION: v1.8.6 (Constraint-Free Upsert Core)
 # DATE: 2026-06-29
 # AUTHOR: CTO & 제대리 (Gemini)
-# DESCRIPTION: 전세 거주(세입자 자산)와 갭투자(집주인 부채)를 명확히 구분하는 백엔드 수식 전면 고도화
+# DESCRIPTION: Unique 제약조건이 없는 Supabase 테이블 환경을 고려한 부동산 분기 저장(42P10 에러 박멸)
 # ==========================================
 import os
 import requests
@@ -189,7 +189,7 @@ def save_portfolio():
 
 
 # ==========================================
-# [CORE 2] 부동산 엔진 파이프라인 (전세 임차 완벽 파싱 고도화 수술)
+# [CORE 2] 부동산 엔진 파이프라인 (안전 분기 우회 알고리즘 적용)
 # ==========================================
 @api_blueprint.route("/real-estate", methods=["GET"])
 def get_real_estate():
@@ -201,8 +201,6 @@ def get_real_estate():
         
         holding_assets = []
         watch_assets = []
-        
-        # 통합 매트릭스 계산용 변수 밸런스 설정
         total_eval_re = 0
         total_debt_re = 0
         net_lease_cash = 0 
@@ -216,20 +214,15 @@ def get_real_estate():
             monthly_rent = float(item.get("monthly_rent", 0) or 0)
             purchase_price = float(item.get("purchase_price", 0) or 0)
 
-            # 💡 [정밀 로직 주입] 보유 형태 명세에 따른 백엔드 자산 분기 스케일링
             if h_type == "TENANT_LEASE":
-                # 전세 거주(세입자)일 때: 내 부동산 실물 소유액은 0이며, 보증금 자체가 평가 총액이자 반환 자산이 됨
                 computed_eval = 0 
-                computed_debt = debt  # 전세자금대출
-                # 전세 보증금 순수 현금 반환금 계산용
+                computed_debt = debt
                 net_lease_cash += (monthly_rent - debt)
             elif h_type == "LEASE":
-                # 갭투자(집주인)일 때: 집 시세는 내 자산, 세입자 보증금은 내 임대 부채
                 computed_eval = c_price
                 computed_debt = debt
                 net_lease_cash += (c_price - debt - monthly_rent)
             else:
-                # 일반 자가 보유 실거주 / 월세 임대
                 computed_eval = c_price
                 computed_debt = debt
 
@@ -256,7 +249,7 @@ def get_real_estate():
         return jsonify({
             "total_evaluation_re": total_eval_re,
             "total_debt_re": total_debt_re,
-            "net_worth_re": total_eval_re - total_debt_re, # 프론트엔드단에서 디테일 재파싱 처리 보정 완료
+            "net_worth_re": total_eval_re - total_debt_re,
             "net_lease_cash": net_lease_cash, 
             "holding_assets": holding_assets,
             "watch_assets": watch_assets
@@ -278,8 +271,9 @@ def save_real_estate():
                 return jsonify({"status": "success", "message": "부동산 삭제 완료"})
             return jsonify({"status": "error", "message": "식별 ID 누락"}), 400
 
+        name = data.get("name")
         payload = {
-            "name": data.get("name"),
+            "name": name,
             "estate_type": data.get("estate_type"),
             "holding_type": data.get("holding_type", "OWN"),
             "purchase_price": float(data.get("purchase_price") or 0),
@@ -291,7 +285,16 @@ def save_real_estate():
             "expiry_date": data.get("expiry_date") if data.get("expiry_date") else None
         }
 
-        supabase.table("real_estate_portfolio").upsert(payload, on_conflict="name").execute()
+        # 💡 [정밀 처방] ON CONFLICT 제약조건 에러를 우회하기 위해 데이터 존재 여부를 먼저 select로 검사합니다.
+        existing = supabase.table("real_estate_portfolio").select("id").eq("name", name).execute()
+        
+        if existing.data and len(existing.data) > 0:
+            # 이미 동일한 매물명의 데이터가 있다면 update 처리
+            supabase.table("real_estate_portfolio").update(payload).eq("name", name).execute()
+        else:
+            # 신규 데이터라면 insert 처리
+            supabase.table("real_estate_portfolio").insert(payload).execute()
+
         return jsonify({"status": "success"})
         
     except Exception as e:
