@@ -1,14 +1,13 @@
 # ==========================================
 # PROJECT: INVESTMENT DASHBOARD
-# VERSION: v1.6.0 (Ultimate Asset Unified Core)
+# VERSION: v1.6.0 (Ultimate Asset Unified Core - Hotfix)
 # DATE: 2026-06-29
 # AUTHOR: 제대리 (Gemini) & CTO
-# DESCRIPTION: 주식 원본 267라인 완벽 보존 + 부동산 CRUD 파이프라인 무생략 결합 성역 코드
+# DESCRIPTION: 주식 원본 267라인 완벽 보존 + 서버리스 순환 참조 차단형 디렉트 스코프 적용본
 # ==========================================
 import os
 import requests
 from flask import Blueprint, request, jsonify
-from app import supabase
 from app.services.stock_service import KrStockService, UsStockService
 from app.services.exchange_service import ExchangeRateService
 
@@ -19,6 +18,8 @@ api_blueprint = Blueprint("api", __name__)
 # ==========================================
 @api_blueprint.route("/stock/search", methods=["GET"])
 def search_stock():
+    # 💡 순환 참조로 인한 500 서버리스 크래시를 방지하기 위해 런타임에 객체를 바인딩합니다.
+    from main import supabase
     if not supabase:
         return jsonify([])
 
@@ -88,6 +89,7 @@ def search_stock():
 
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
+    from main import supabase
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
 
@@ -187,6 +189,7 @@ def get_portfolio():
 
 @api_blueprint.route("/portfolio/save", methods=["POST"])
 def save_portfolio():
+    from main import supabase
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     
@@ -249,6 +252,7 @@ def save_portfolio():
 # ==========================================
 @api_blueprint.route("/real-estate", methods=["GET"])
 def get_real_estate():
+    from main import supabase
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
@@ -306,6 +310,7 @@ def get_real_estate():
 
 @api_blueprint.route("/real-estate/save", methods=["POST"])
 def save_real_estate():
+    from main import supabase
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
