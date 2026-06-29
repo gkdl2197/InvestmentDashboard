@@ -1,0 +1,1635 @@
+﻿----------------------------------------
+FILE: D:\Project\InvestmentDashboard\.env
+----------------------------------------
+
+# Flask ?ㅼ젙
+FLASK_ENV=development
+FLASK_DEBUG=True
+
+# ?곗씠?곕쿋?댁뒪 ?ㅼ젙 (SQLite 寃쎈줈 ?먮룞 吏??
+DATABASE_URL=sqlite:///investment.db
+
+# ?몃? API Key ?뺣낫
+FINNHUB_API_KEY=d8tj97pr01qhcnk3vudgd8tj97pr01qhcnk3vue0
+SUPABASE_URL=https://wgsaulirfnqrmwmwcwac.supabase.co
+SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indnc2F1bGlyZm5xcm13bXdjd2FjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMzE5MjUsImV4cCI6MjA5NzkwNzkyNX0.z3bGYt8Kc6fy7NHrWYJ_JRWa_xEAuoGO0whCt2k4zVg
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\.gitignore
+----------------------------------------
+
+.venv/
+*.pyc
+__pycache__/
+.env
+instance/
+backend/app/investment.db
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\insert_krx.py
+----------------------------------------
+
+# ==========================================
+# PROJECT: INVESTMENT DASHBOARD
+# VERSION: v1.6.6 (Official Token Standard Alignment)
+# DATE: 2026-06-29
+# AUTHOR: ?쒕?由?(Gemini) & CTO
+# DESCRIPTION: Supabase 怨듭떇 ?몄쬆 洹쒓꺽 留ㅽ븨 ?꾨즺, 二쇱떇/遺?숈궛 ?곗씠??諛붿씤??理쒖쥌 ?꾩튂蹂?
+# ==========================================
+import os
+import requests
+from flask import Blueprint, request, jsonify
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+load_dotenv()
+
+# ?뮕 Vercel ?꾨줈?뺤뀡 ?섍꼍???깅줉??Supabase ?뺤떇 URL怨?蹂댁븞 ?쒕퉬??濡??ㅻ? ?뺥솗?섍쾶 留ㅽ븨?⑸땲??
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+# ?뮕 ?듭떖 ?섏닠: Supabase媛 ?몄??섎뒗 怨듭떇 ANON ???먮뒗 SERVICE_ROLE ??洹쒓꺽???ㅼ씠?됲듃濡?留ㅽ븨?⑸땲??
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
+
+supabase: Client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("??api.py Supabase 怨듭떇 ?몄쬆 ?붿쭊 ?곌껐 ?깃났!")
+    except Exception as e:
+        print(f"??api.py Supabase ?몄쬆 寃고븿 ?먮윭: {str(e)}")
+else:
+    print("?좑툘 寃쎄퀬: Supabase 怨듭떇 ?섍꼍 蹂??濡쒕뱶 ?ㅽ뙣")
+
+api_blueprint = Blueprint("api", __name__)
+
+# ==========================================
+# [CORE 1] 二쇱떇 ?꾩슜 ?붿쭊 ?뚯씠?꾨씪??(?ㅻ━吏??100% 蹂댁〈)
+# ==========================================
+@api_blueprint.route("/stock/search", methods=["GET"])
+def search_stock():
+    if not supabase:
+        return jsonify([])
+
+    market = request.args.get("market", "KR")
+    query = request.args.get("query", "").strip()
+
+    if not query:
+        return jsonify([])
+
+    try:
+        if market == "US":
+            FINNHUB_KEY = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_KEY")
+            url = f"https://finnhub.io/api/v1/search?q={query}&token={FINNHUB_KEY}"
+            
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=5)
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("result", [])
+                
+                final_us_items = []
+                for item in results[:10]:
+                    symbol = item.get("symbol", "")
+                    if "." not in symbol:
+                        final_us_items.append({
+                            "symbol": symbol,
+                            "name": item.get("description", "")
+                        })
+                return jsonify(final_us_items)
+            return jsonify([])
+            
+        else:
+            res = supabase.table("kr_stock_list")\
+                .select("symbol,name")\
+                .ilike("name", f"%{query}%")\
+                .limit(50)\
+                .execute()
+            
+            raw_items = res.data if res.data else []
+            
+            scored_items = []
+            for item in raw_items:
+                name = item["name"]
+                symbol = item["symbol"]
+                score = 0
+                
+                if name.startswith(query):
+                    score += 100
+                elif query in name:
+                    score += 50
+                    
+                score -= len(name) * 0.1
+                scored_items.append({"symbol": symbol, "name": name, "score": score})
+            
+            scored_items.sort(key=lambda x: x["score"], reverse=True)
+            return jsonify([{"symbol": item["symbol"], "name": item["name"]} for item in scored_items[:10]])
+
+    except Exception as e:
+        print(f"??寃???붿쭊 援щ룞 ?ㅽ뙣 ?먮윭: {str(e)}")
+        return jsonify([])
+
+
+@api_blueprint.route("/portfolio", methods=["GET"])
+def get_portfolio():
+    if not supabase: 
+        return jsonify({"status": "error", "message": "Supabase 誘몄뿰寃??곹깭"}), 500
+
+    db_stocks = []
+    try:
+        res = supabase.table("stock_portfolio").select("*").execute()
+        db_stocks = res.data if res.data else []
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"DB 濡쒕뱶 ?먮윭: {str(e)}"}), 500
+
+    exchange_rate = 1350.0
+    try:
+        fx_res = requests.get("https://open.er-api.com/v6/latest/USD", timeout=3)
+        if fx_res.status_code == 200:
+            exchange_rate = fx_res.json().get("rates", {}).get("KRW", 1350.0)
+    except Exception:
+        pass
+
+    portfolio = {"KR": [], "US": []}
+    total_eval_krw = 0
+    total_pur_krw = 0
+    total_eval_usd = 0
+    total_pur_usd = 0
+
+    for stock in db_stocks:
+        try:
+            qty = float(stock.get("quantity", 0) or 0)
+            avg_p = float(stock.get("avg_price", 0) or 0)
+            market = stock.get("market", "KR")
+            symbol = stock.get("symbol", "")
+            
+            if qty <= 0: 
+                continue
+
+            stock_data = {
+                "id": stock.get("id"), "symbol": symbol, "name": stock.get("name") or symbol,
+                "quantity": qty, "avg_price": avg_p, "current_price": avg_p, "chg_percent": 0.0,
+                "purchase_amount": 0, "eval_amount": 0, "total_profit": 0,
+                "total_profit_percent": 0.0, "weight_percent": 0.0, "market": market
+            }
+            
+            if market == "US":
+                stock_data["purchase_amount"] = round(avg_p * qty, 2)
+                stock_data["current_price"] = avg_p
+                stock_data["eval_amount"] = round(stock_data["current_price"] * qty, 2)
+                stock_data["total_profit"] = round(stock_data["eval_amount"] - stock_data["purchase_amount"], 2)
+                if stock_data["purchase_amount"] > 0:
+                    stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
+                total_pur_usd += stock_data["purchase_amount"]
+                total_eval_usd += stock_data["eval_amount"]
+            else:
+                stock_data["purchase_amount"] = int(avg_p * qty)
+                stock_data["current_price"] = avg_p
+                stock_data["eval_amount"] = int(stock_data["current_price"] * qty)
+                stock_data["total_profit"] = stock_data["eval_amount"] - stock_data["purchase_amount"]
+                if stock_data["purchase_amount"] > 0:
+                    stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
+                total_pur_krw += stock_data["purchase_amount"]
+                total_eval_krw += stock_data["eval_amount"]
+
+            portfolio[market].append(stock_data)
+        except Exception:
+            continue
+
+    combined_total_krw = total_eval_krw + int(total_eval_usd * exchange_rate)
+
+    if combined_total_krw > 0:
+        for m in ["KR", "US"]:
+            for s in portfolio[m]:
+                eval_krw = (s["eval_amount"] * exchange_rate) if m == "US" else s["eval_amount"]
+                s["weight_percent"] = round((eval_krw / combined_total_krw) * 100, 1)
+
+    profit_rate_krw = round(((total_eval_krw - total_pur_krw) / total_pur_krw * 100), 2) if total_pur_krw > 0 else 0.0
+    profit_rate_usd = round(((total_eval_usd - total_pur_usd) / total_pur_usd * 100), 2) if total_pur_usd > 0 else 0.0
+
+    return jsonify({
+        "total_evaluation_krw": int(total_eval_krw),
+        "profit_rate_krw": profit_rate_krw,
+        "total_evaluation_usd": round(total_eval_usd, 2),
+        "profit_rate_usd": profit_rate_usd,
+        "combined_total_krw": combined_total_krw,
+        "exchange_rate": exchange_rate, 
+        "portfolio": portfolio
+    })
+
+
+@api_blueprint.route("/portfolio/save", methods=["POST"])
+def save_portfolio():
+    if not supabase: 
+        return jsonify({"status": "error", "message": "Supabase 誘몄뿰寃??곹깭"}), 500
+    
+    data = request.get_json()
+    market = data.get("market", "KR")
+    symbol = data.get("symbol")
+    name = data.get("name")
+    tx_type = data.get("tx_type", "BUY")
+    input_qty = float(data.get("quantity", 0))
+    input_price = float(data.get("avg_price", 0))
+    
+    if not symbol:
+        return jsonify({"status": "error", "message": "醫낅ぉ 肄붾뱶媛 ?꾨씫?섏뿀?듬땲??"}), 400
+
+    try:
+        existing = supabase.table("stock_portfolio").select("*").eq("symbol", symbol).execute()
+        
+        if existing.data and len(existing.data) > 0:
+            current_stock = existing.data[0]
+            old_qty = float(current_stock.get("quantity", 0) or 0)
+            old_price = float(current_stock.get("avg_price", 0) or 0)
+            
+            if tx_type == "BUY":
+                new_qty = old_qty + input_qty
+                new_price = ((old_price * old_qty) + (input_price * input_qty)) / new_qty if new_qty > 0 else 0
+                
+                supabase.table("stock_portfolio").update({
+                    "quantity": new_qty, "avg_price": round(new_price, 2) if market=="US" else int(new_price)
+                }).eq("symbol", symbol).execute()
+                
+            else:
+                new_qty = old_qty - input_qty
+                
+                if new_qty <= 0:
+                    supabase.table("stock_portfolio").delete().eq("symbol", symbol).execute()
+                else:
+                    supabase.table("stock_portfolio").update({
+                        "quantity": new_qty
+                    }).eq("symbol", symbol).execute()
+        else:
+            if tx_type == "SELL":
+                return jsonify({"status": "error", "message": "蹂댁쑀?섏? ?딆? 醫낅ぉ? 留ㅻ룄?????놁뒿?덈떎."}), 400
+                
+            supabase.table("stock_portfolio").insert({
+                "market": market, "symbol": symbol, "name": name,
+                "quantity": input_qty, "avg_price": input_price
+            }).execute()
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ==========================================
+# [CORE 2] 遺?숈궛 ?꾩슜 CRUD ?뚯씠?꾨씪??(臾댁깮??蹂댁〈)
+# ==========================================
+@api_blueprint.route("/real-estate", methods=["GET"])
+def get_real_estate():
+    if not supabase: 
+        return jsonify({"status": "error", "message": "Supabase 誘몄뿰寃??곹깭"}), 500
+    try:
+        res = supabase.table("real_estate_portfolio").select("*").order("created_at").execute()
+        db_estates = res.data if res.data else []
+        
+        holding_assets = []
+        watch_assets = []
+        total_eval_re = 0
+        total_debt_re = 0
+        net_lease_cash = 0 
+
+        for item in db_estates:
+            is_watch = item.get("is_watchlist", False)
+            c_price = float(item.get("current_price", 0) or 0)
+            debt = float(item.get("debt", 0) or 0)
+            
+            estate_data = {
+                "id": item.get("id"), "name": item.get("name"), "estate_type": item.get("estate_type"),
+                "holding_type": item.get("holding_type"), "purchase_price": float(item.get("purchase_price", 0) or 0),
+                "current_price": c_price, "debt": debt, "monthly_rent": float(item.get("monthly_rent", 0) or 0),
+                "expiry_date": item.get("expiry_date"), "target_price": float(item.get("target_price", 0) or 0)
+            }
+
+            if is_watch:
+                watch_assets.append(estate_data)
+            else:
+                holding_assets.append(estate_data)
+                total_eval_re += c_price
+                total_debt_re += debt
+                if item.get("holding_type") == "LEASE":
+                    net_lease_cash += (c_price - debt)
+
+        return jsonify({
+            "total_evaluation_re": total_eval_re, "total_debt_re": total_debt_re,
+            "net_worth_re": total_eval_re - total_debt_re, "net_lease_cash": net_lease_cash, 
+            "holding_assets": holding_assets, "watch_assets": watch_assets
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@api_blueprint.route("/real-estate/save", methods=["POST"])
+def save_real_estate():
+    if not supabase: 
+        return jsonify({"status": "error", "message": "Supabase 誘몄뿰寃??곹깭"}), 500
+    try:
+        data = request.get_json()
+        if data.get("action") == "DELETE":
+            asset_id = data.get("id")
+            if asset_id:
+                supabase.table("real_estate_portfolio").delete().eq("id", asset_id).execute()
+                return jsonify({"status": "success", "message": "遺?숈궛 ??젣 ?꾨즺"})
+            return jsonify({"status": "error", "message": "ID ?꾨씫"}), 400
+
+        payload = {
+            "name": data.get("name"), "estate_type": data.get("estate_type"), "holding_type": data.get("holding_type", "OWN"),
+            "purchase_price": float(data.get("purchase_price") or 0), "current_price": float(data.get("current_price") or 0),
+            "debt": float(data.get("debt") or 0), "monthly_rent": float(data.get("monthly_rent") or 0),
+            "is_watchlist": str(data.get("is_watchlist")).lower() == "true", "target_price": float(data.get("target_price") or 0),
+            "expiry_date": data.get("expiry_date") if data.get("expiry_date") else None
+        }
+        supabase.table("real_estate_portfolio").upsert(payload, on_conflict="name").execute()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\requirements.txt
+----------------------------------------
+
+APScheduler==3.11.2
+blinker==1.9.0
+certifi==2026.6.17
+charset-normalizer==3.4.7
+click==8.4.1
+colorama==0.4.6
+Flask==3.1.3
+idna==3.18
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+python-dotenv==1.2.2
+requests==2.34.2
+tzdata==2026.2
+tzlocal==5.4.3
+urllib3==2.7.0
+Werkzeug==3.1.8
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.31
+Flask-CORS==4.0.0
+supabase==2.5.1
+beautifulsoup4==4.12.3
+finance-datareader
+pandas
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\vercel.json
+----------------------------------------
+
+{
+  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index.py" }],
+  "framework": "flask"
+}
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\api\index.py
+----------------------------------------
+
+import os
+import sys
+
+# ?뮕 Vercel ?뚮떎 而⑦뀒?대꼫媛 backend ?대뜑 ?대?瑜??꾨꼍?섍쾶 ?먯깋?????덈룄濡?寃쎈줈 二쇱엯 留덈쾿??遺由쎈땲??
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../backend'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from backend.run import app
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\run.py
+----------------------------------------
+
+# ==========================================
+# PROJECT: INVESTMENT DASHBOARD
+# VERSION: v1.5.3 (Absolute Vercel Boot Shield)
+# DATE: 2026-06-29
+# AUTHOR: CTO & ?쒕?由?(Gemini)
+# DESCRIPTION: Vercel ?곷떒 紐⑤뱢 濡쒕뵫 瑗ъ엫???먯쿇 李⑤떒?섍퀬 Flask瑜??고??꾩뿉 ?ㅼ씠?됲듃濡??щ━??諛⑹뼱留?
+# ==========================================
+import os
+import sys
+
+# ?뮕 ?듭떖 泥섎갑: Vercel ?쒕쾭由ъ뒪 ?섍꼍?먯꽌 'app' 紐⑤뱢 ?좎떎濡??명븳 ModuleNotFoundError瑜??꾨꼍???덈갑?⑸땲??
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+# ?섏쐞 __init__.py媛 ?쒗솚 李몄“濡??곗??붾씪??臾댁“嫄????꾨줈?몄뒪 遺?낆쓣 200 OK濡?媛뺤젣 ?듦낵?쒗궢?덈떎.
+try:
+    from backend.app import create_app
+    app = create_app()
+except Exception as e:
+    # ?뮕 理쒖쥌 諛⑹뼱留? 留뚯빟 ?대? ?꾪룷?멸? 瑗ъ???寃쎌슦, ?щ옒??500)瑜??댁? ?딄퀬 ?고??꾩뿉 理쒖냼?쒖쓽 媛??堉덈?瑜??뺣낫?⑸땲??
+    from flask import Flask, jsonify
+    from flask_cors import CORS
+    
+    app = Flask(__name__)
+    CORS(app)
+    
+    @app.route("/api/portfolio", methods=["GET"])
+    def fallback_portfolio():
+        # ?꾩떆 媛?쒖슜 濡쒓렇 異쒕젰
+        print("?좑툘 ?고???湲닿툒 蹂듦뎄 諛몃툕 媛??)
+        return jsonify({"status": "error", "message": "?쒕쾭 紐⑤뱢 寃쎈줈 珥덇린???湲?以?}), 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\app\app.py
+----------------------------------------
+
+import os
+import json
+import requests
+from bs4 import BeautifulSoup
+from flask import Flask, render_template, jsonify
+
+app = Flask(__name__)
+
+# ?좑툘 蹂몄씤??Finnhub API Key ?뺤씤!
+FINNHUB_API_KEY = "d8tj97pr01qhcnk3vudgd8tj97pr01qhcnk3vue0"
+
+PORTFOLIO_PATH = os.path.join(os.path.dirname(__file__), 'data', 'portfolio.json')
+
+def load_portfolio():
+    with open(PORTFOLIO_PATH, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def get_us_realtime_price(symbol):
+    url = f"https://finnhub.io/api/v1/quote?symbol={symbol}&token={FINNHUB_API_KEY}"
+    try:
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        if "c" in data and data["c"] != 0:
+            return {"current_price": float(data["c"]), "chg_percent": float(data["dp"])}
+    except Exception as e:
+        print(f"{symbol} 誘멸뎅 二쇨? ?ㅽ뙣: {e}")
+    return None
+
+def get_kr_realtime_price(symbol):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
+    }
+    url = f"https://finance.naver.com/item/main.naver?code={symbol}"
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        no_today = soup.find('p', {'class': 'no_today'})
+        if not no_today: return None
+        blind_val = no_today.find('span', {'class': 'blind'})
+        current_price = int(blind_val.text.replace(',', ''))
+        
+        no_exday = soup.find('p', {'class': 'no_exday'})
+        ico = no_exday.find('span', {'class': 'ico'})
+        is_down = "?섎씫" in ico.text if ico else False
+        blind_chg = no_exday.find_all('span', {'class': 'blind'})
+        if len(blind_chg) >= 2:
+            chg_percent = float(blind_chg[1].text.replace('%', '').strip())
+            if is_down: chg_percent = -chg_percent
+        else:
+            chg_percent = 0.0
+        return {"current_price": current_price, "chg_percent": chg_percent}
+    except Exception as e:
+        print(f"{symbol} ?쒓뎅 二쇨? ?ㅽ뙣: {e}")
+    return None
+
+def get_exchange_rate():
+    """?ㅼ씠踰?湲덉쑖?먯꽌 ???щ윭 ?섏쑉???ㅼ떆媛꾩쑝濡?媛?몄샃?덈떎."""
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    url = "https://finance.naver.com/marketindex/"
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        exchange_rate = soup.find('span', {'class': 'value'}).text
+        return float(exchange_rate.replace(',', ''))
+    except Exception as e:
+        print(f"?섏쑉 媛?몄삤湲??ㅽ뙣: {e}")
+        return 1350.0  # ?ㅽ뙣 ??湲곕낯 諛⑹뼱 ?섏쑉
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/api/portfolio")
+def get_portfolio():
+    portfolio = load_portfolio()
+    exchange_rate = get_exchange_rate()
+    
+    total_purchase = 0  # 珥?留ㅼ닔 湲덉븸 (?먰솕 湲곗?)
+    total_evaluation = 0  # 珥??됯? 湲덉븸 (?먰솕 湲곗?)
+    total_today_profit = 0  # ?ㅻ뒛 ?섎（ 珥??먯씡 (?먰솕 湲곗?)
+
+    # 1. 誘멸뎅 二쇱떇 ?ㅼ떆媛?怨꾩궛
+    for stock in portfolio.get("US", []):
+        realtime_data = get_us_realtime_price(stock["symbol"])
+        if realtime_data:
+            stock["current_price"] = realtime_data["current_price"]
+            stock["chg_percent"] = realtime_data["chg_percent"]
+        else:
+            stock["current_price"] = stock["avg_price"]
+            stock["chg_percent"] = 0.0
+        
+        # ?먰솕 ?섏궛 媛移?怨꾩궛
+        purchase_krw = stock["avg_price"] * stock["quantity"] * exchange_rate
+        eval_krw = stock["current_price"] * stock["quantity"] * exchange_rate
+        
+        # Finnhub??chg_percent? ?꾩옱媛濡??ㅻ뒛 ?섎（留뚯쓽 蹂?숆툑???좎텛 怨꾩궛
+        prev_price = stock["current_price"] / (1 + (stock["chg_percent"] / 100))
+        today_profit_krw = (stock["current_price"] - prev_price) * stock["quantity"] * exchange_rate
+        
+        total_purchase += purchase_krw
+        total_evaluation += eval_krw
+        total_today_profit += today_profit_krw
+
+    # 2. ?쒓뎅 二쇱떇 ?ㅼ떆媛?怨꾩궛
+    for stock in portfolio.get("KR", []):
+        realtime_data = get_kr_realtime_price(stock["symbol"])
+        if realtime_data:
+            stock["current_price"] = realtime_data["current_price"]
+            stock["chg_percent"] = realtime_data["chg_percent"]
+        else:
+            stock["current_price"] = stock["avg_price"]
+            stock["chg_percent"] = 0.0
+            
+        purchase_krw = stock["avg_price"] * stock["quantity"]
+        eval_krw = stock["current_price"] * stock["quantity"]
+        
+        prev_price = stock["current_price"] / (1 + (stock["chg_percent"] / 100))
+        today_profit_krw = (stock["current_price"] - prev_price) * stock["quantity"]
+        
+        total_purchase += purchase_krw
+        total_evaluation += eval_krw
+        total_today_profit += today_profit_krw
+
+    # 3. 醫낇빀 怨꾩쥖 ?곗씠???붿빟
+    total_profit = total_evaluation - total_purchase
+    total_profit_percent = (total_profit / total_purchase * 100) if total_purchase > 0 else 0.0
+
+    summary = {
+        "total_evaluation": int(total_evaluation),
+        "total_profit": int(total_profit),
+        "total_profit_percent": round(total_profit_percent, 2),
+        "total_today_profit": int(total_today_profit),
+        "exchange_rate": exchange_rate,
+        "portfolio": portfolio
+    }
+
+    return jsonify(summary)
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\app\config.py
+----------------------------------------
+
+import os
+from dotenv import load_dotenv
+
+# ?꾨줈?앺듃 理쒖긽??猷⑦듃???덈뒗 .env 濡쒕뱶
+load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
+
+class Config:
+    """?좏뵆由ъ??댁뀡 ?섍꼍 ?ㅼ젙 ?대옒??""
+    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
+    
+    # ?뮕 [Vercel Read-only 諛⑹뼱 ?ㅼ쐞移?
+    if os.getenv("VERCEL") == "1":
+        # ?대씪?곕뱶 ?섍꼍???뚮뒗 ?뚯씪 ?앹꽦??諛⑹??섍린 ?꾪빐 硫붾え由?DB 湲곕낯媛믪쓣 以띾땲??
+        SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///:memory:")
+    else:
+        # ??而댄벂??濡쒖뺄)???뚮뒗 湲곗〈 肄붾뱶 洹몃?濡??묐룞?⑸땲??
+        SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///investment.db")
+        
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    # API ?몃? ??
+    FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\app\database.py
+----------------------------------------
+
+from flask_sqlalchemy import SQLAlchemy
+
+# SQLAlchemy ?몄뒪?댁뒪 ?앹꽦 (?꾩쭅 ?깆씠 諛붿씤?⑸릺吏 ?딆? ?곹깭)
+db = SQLAlchemy()
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\app\__init__.py
+----------------------------------------
+
+import os
+from flask import Flask
+from flask_cors import CORS
+from backend.app.config import Config
+from backend.app.database import db
+
+def create_app():
+    """Flask ?좏뵆由ъ??댁뀡 ?⑺넗由??⑥닔"""
+    # ?꾨줎?몄뿏???대뜑 ?꾩튂 留ㅽ븨
+    app = Flask(__name__, 
+                template_folder=os.path.join(os.path.dirname(__file__), '../../frontend/templates'),
+                static_folder=os.path.join(os.path.dirname(__file__), '../../frontend/static'))
+    
+    # 1. ?섍꼍 ?ㅼ젙 濡쒕뱶
+    app.config.from_object(Config)
+    
+    # 2. CORS 蹂댁븞 ?뺤콉 ?덉슜 ?ㅼ젙
+    CORS(app)
+    
+    # 3. ?곗씠?곕쿋?댁뒪 珥덇린??諛???諛붿씤??
+    db.init_app(app)
+    
+    # 4. ?좑툘 ?쇱슦???곌껐 ?듬줈) ?깅줉 ?꾨줈?몄뒪 媛??
+    from backend.app.routes.api import api_blueprint
+    app.register_blueprint(api_blueprint)
+    
+    # 湲곕낯 ??二쇱냼 ?묒냽 ????쒕낫??HTML ?뚯씪 ?뚮뜑留?
+    from flask import render_template
+    @app.route("/")
+    def index():
+        return render_template("index.html")
+        
+    return app
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\app\models\portfolio.py
+----------------------------------------
+
+from backend.app.database import db
+
+class StockPortfolio(db.Model):
+    """蹂댁쑀 二쇱떇 ?먯궛??愿由ы븯???곗씠?곕쿋?댁뒪 ?뚯씠釉?紐⑤뜽"""
+    __tablename__ = 'stock_portfolio'
+
+    # 1. 怨좎쑀 ?앸퀎 踰덊샇 (湲곕낯??
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    
+    # 2. ?쒖옣 援щ텇 (?? 'US' ?먮뒗 'KR')
+    market = db.Column(db.String(10), nullable=False)
+    
+    # 3. 醫낅ぉ 肄붾뱶 (?? 'NVDA', '005930')
+    symbol = db.Column(db.String(20), nullable=False, unique=True)
+    
+    # 4. 醫낅ぉ紐?(援?궡 二쇱떇 ?쒓? ?쒓린?? 誘멸뎅 二쇱떇? ?앸왂 媛??
+    name = db.Column(db.String(100), nullable=True)
+    
+    # 5. 蹂댁쑀 ?섎웾 (?뚯닔???먯궛 吏?먯쓣 ?꾪빐 Float ?ъ슜)
+    quantity = db.Column(db.Float, nullable=False, default=0.0)
+    
+    # 6. ?됯퇏 留ㅼ닔 ?④?
+    avg_price = db.Column(db.Float, nullable=False, default=0.0)
+
+    def __repr__(self):
+        return f"<Stock {self.market} - {self.symbol} ({self.quantity}二?>"
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\app\routes\api.py
+----------------------------------------
+
+# ==========================================
+# PROJECT: INVESTMENT DASHBOARD
+# VERSION: v1.5.1 (Pure Stock Recovery & Absolute Import Path Fix)
+# DATE: 2026-06-29
+# AUTHOR: CTO & ?쒕?由?(Gemini)
+# DESCRIPTION: ?ㅼ쟾 二쇱떇 肄붿뼱 100% ?먮났 + ?쒕쾭由ъ뒪 ?щ옒???좊컻 'from app import' 寃쎈줈 ?뺣? ?섏젙
+# ==========================================
+import os
+import requests
+from flask import Blueprint, request, jsonify, current_app
+
+# ?뮕 ?듭떖 援먯젙: ModuleNotFoundError瑜??좊컻?섎뒗 'from app'??踰꾨━怨?臾닿껐??backend ?⑥뒪濡??고쉶?⑸땲??
+from backend.app.services.kr_stock import KrStockService
+from backend.app.services.us_stock import UsStockService
+from backend.app.services.exchange_rate import ExchangeRateService
+
+api_blueprint = Blueprint("api", __name__)
+
+# ?꾩뿭 scope?먯꽌 ?곗???寃껋쓣 留됯린 ?꾪빐 ?고??꾩뿉 current_app???듯빐 二쇱엯??db 媛앹껜瑜?媛?몄샃?덈떎.
+def get_supabase():
+    try:
+        from backend.app.database import db
+        return db
+    except Exception:
+        return None
+
+@api_blueprint.route("/stock/search", methods=["GET"])
+def search_stock():
+    # ?뮕 ?고???諛붿씤?⑹쑝濡??쒗솚 李몄“ 諛?紐⑤뱢 寃쎈줈 ?좎떎 ?꾨꼍 諛⑹뼱
+    from backend.app.database import db as supabase
+    if not supabase:
+        return jsonify([])
+
+    market = request.args.get("market", "KR")
+    query = request.args.get("query", "").strip()
+
+    if not query:
+        return jsonify([])
+
+    try:
+        if market == "US":
+            FINNHUB_KEY = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_KEY")
+            url = f"https://finnhub.io/api/v1/search?q={query}&token={FINNHUB_KEY}"
+            
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=5)
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("result", [])
+                
+                final_us_items = []
+                for item in results[:10]:
+                    symbol = item.get("symbol", "")
+                    if "." not in symbol:
+                        final_us_items.append({
+                            "symbol": symbol,
+                            "name": item.get("description", "")
+                        })
+                return jsonify(final_us_items)
+            return jsonify([])
+            
+        else:
+            res = supabase.table("kr_stock_list")\
+                .select("symbol,name")\
+                .ilike("name", f"%{query}%")\
+                .limit(50)\
+                .execute()
+            
+            raw_items = res.data if res.data else []
+            
+            scored_items = []
+            for item in raw_items:
+                name = item["name"]
+                symbol = item["symbol"]
+                score = 0
+                
+                if name.startswith(query):
+                    score += 100
+                elif query in name:
+                    score += 50
+                    
+                score -= len(name) * 0.1
+                scored_items.append({"symbol": symbol, "name": name, "score": score})
+            
+            scored_items.sort(key=lambda x: x["score"], reverse=True)
+            return jsonify([{"symbol": item["symbol"], "name": item["name"]} for item in scored_items[:10]])
+
+    except Exception as e:
+        print(f"??寃???붿쭊 援щ룞 ?ㅽ뙣 ?먮윭: {str(e)}")
+        return jsonify([])
+
+
+@api_blueprint.route("/portfolio", methods=["GET"])
+def get_portfolio():
+    from backend.app.database import db as supabase
+    if not supabase: 
+        return jsonify({"status": "error", "message": "Supabase 誘몄뿰寃?}), 500
+
+    db_stocks = []
+    try:
+        res = supabase.table("stock_portfolio").select("*").execute()
+        db_stocks = res.data if res.data else []
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"DB 濡쒕뱶 ?먮윭: {str(e)}"}), 500
+
+    exchange_rate = ExchangeRateService().get_usd_krw() or 1350.0
+    portfolio = {"KR": [], "US": []}
+    
+    total_eval_krw = 0
+    total_pur_krw = 0
+    total_eval_usd = 0
+    total_pur_usd = 0
+
+    for stock in db_stocks:
+        try:
+            qty = float(stock.get("quantity", 0) or 0)
+            avg_p = float(stock.get("avg_price", 0) or 0)
+            market = stock.get("market", "KR")
+            symbol = stock.get("symbol", "")
+            
+            if qty <= 0: 
+                continue
+
+            stock_data = {
+                "id": stock.get("id"), 
+                "symbol": symbol, 
+                "name": stock.get("name") or symbol,
+                "quantity": qty, 
+                "avg_price": avg_p, 
+                "current_price": avg_p, 
+                "chg_percent": 0.0,
+                "purchase_amount": 0, 
+                "eval_amount": 0, 
+                "total_profit": 0,
+                "total_profit_percent": 0.0, 
+                "weight_percent": 0.0, 
+                "market": market
+            }
+            
+            if market == "US":
+                rt = UsStockService.get_realtime_price(symbol)
+                stock_data["purchase_amount"] = round(avg_p * qty, 2)
+                if rt:
+                    stock_data["current_price"] = float(rt.get("current_price", avg_p))
+                stock_data["eval_amount"] = round(stock_data["current_price"] * qty, 2)
+                stock_data["total_profit"] = round(stock_data["eval_amount"] - stock_data["purchase_amount"], 2)
+                
+                if stock_data["purchase_amount"] > 0:
+                    stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
+                
+                total_pur_usd += stock_data["purchase_amount"]
+                total_eval_usd += stock_data["eval_amount"]
+            else:
+                rt = KrStockService.get_realtime_price(symbol)
+                stock_data["purchase_amount"] = int(avg_p * qty)
+                if rt:
+                    stock_data["current_price"] = float(rt.get("current_price", avg_p))
+                stock_data["eval_amount"] = int(stock_data["current_price"] * qty)
+                stock_data["total_profit"] = stock_data["eval_amount"] - stock_data["purchase_amount"]
+                
+                if stock_data["purchase_amount"] > 0:
+                    stock_data["total_profit_percent"] = round((stock_data["total_profit"] / stock_data["purchase_amount"]) * 100, 2)
+                
+                total_pur_krw += stock_data["purchase_amount"]
+                total_eval_krw += stock_data["eval_amount"]
+
+            portfolio[market].append(stock_data)
+        except Exception:
+            continue
+
+    combined_total_krw = total_eval_krw + int(total_eval_usd * exchange_rate)
+
+    if combined_total_krw > 0:
+        for m in ["KR", "US"]:
+            for s in portfolio[m]:
+                eval_krw = (s["eval_amount"] * exchange_rate) if m == "US" else s["eval_amount"]
+                s["weight_percent"] = round((eval_krw / combined_total_krw) * 100, 1)
+
+    profit_rate_krw = round(((total_eval_krw - total_pur_krw) / total_pur_krw * 100), 2) if total_pur_krw > 0 else 0.0
+    profit_rate_usd = round(((total_eval_usd - total_pur_usd) / total_pur_usd * 100), 2) if total_pur_usd > 0 else 0.0
+
+    return jsonify({
+        "total_evaluation_krw": int(total_eval_krw),
+        "profit_rate_krw": profit_rate_krw,
+        "total_evaluation_usd": round(total_eval_usd, 2),
+        "profit_rate_usd": profit_rate_usd,
+        "combined_total_krw": combined_total_krw,
+        "exchange_rate": exchange_rate, 
+        "portfolio": portfolio
+    })
+
+
+@api_blueprint.route("/portfolio/save", methods=["POST"])
+def save_portfolio():
+    from backend.app.database import db as supabase
+    if not supabase: 
+        return jsonify({"status": "error", "message": "Supabase 誘몄뿰寃?}), 500
+    
+    data = request.get_json()
+    market = data.get("market", "KR")
+    symbol = data.get("symbol")
+    name = data.get("name")
+    tx_type = data.get("tx_type", "BUY")
+    input_qty = float(data.get("quantity", 0))
+    input_price = float(data.get("avg_price", 0))
+    
+    if not symbol:
+        return jsonify({"status": "error", "message": "醫낅ぉ 肄붾뱶媛 ?꾨씫?섏뿀?듬땲??"}), 400
+
+    try:
+        existing = supabase.table("stock_portfolio").select("*").eq("symbol", symbol).execute()
+        
+        if existing.data and len(existing.data) > 0:
+            current_stock = existing.data[0]
+            old_qty = float(current_stock.get("quantity", 0) or 0)
+            old_price = float(current_stock.get("avg_price", 0) or 0)
+            
+            if tx_type == "BUY":
+                new_qty = old_qty + input_qty
+                new_price = ((old_price * old_qty) + (input_price * input_qty)) / new_qty if new_qty > 0 else 0
+                
+                supabase.table("stock_portfolio").update({
+                    "quantity": new_qty, 
+                    "avg_price": round(new_price, 2) if market=="US" else int(new_price)
+                }).eq("symbol", symbol).execute()
+                
+            else:
+                new_qty = old_qty - input_qty
+                
+                if new_qty <= 0:
+                    supabase.table("stock_portfolio").delete().eq("symbol", symbol).execute()
+                else:
+                    supabase.table("stock_portfolio").update({
+                        "quantity": new_qty
+                    }).eq("symbol", symbol).execute()
+        else:
+            if tx_type == "SELL":
+                return jsonify({"status": "error", "message": "蹂댁쑀?섏? ?딆? 醫낅ぉ? 留ㅻ룄?????놁뒿?덈떎."}), 400
+                
+            supabase.table("stock_portfolio").insert({
+                "market": market, 
+                "symbol": symbol, 
+                "name": name,
+                "quantity": input_qty, 
+                "avg_price": input_price
+            }).execute()
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\app\services\exchange_rate.py
+----------------------------------------
+
+import requests
+from bs4 import BeautifulSoup
+
+class ExchangeRateService:
+    def __init__(self):
+        # ?뮕 OpenAI 愿??肄붾뱶 諛??꾩닔 ??寃利?濡쒖쭅???꾩쟾????젣?섏뿬 ?대씪?곕뱶 異⑸룎???먯쿇 李⑤떒?⑸땲??
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+        }
+
+    def get_usd_krw(self):
+        """?ㅼ씠踰?湲덉쑖?먯꽌 ?ㅼ떆媛?怨좎떆?섏쑉???덉쟾?섍쾶 ?뚯떛?⑸땲??"""
+        try:
+            url = "https://finance.naver.com/marketindex/"
+            response = requests.get(url, headers=self.headers, timeout=10)
+            soup = BeautifulSoup(response.text, "html.parser")
+            
+            exchange_rate = soup.select_one("#exchangeList > li.on > a.head.usd > div > span.value")
+            if exchange_rate:
+                return float(exchange_rate.text.replace(",", ""))
+            
+            # ?щ·留???됲꽣 蹂寃??鍮??쒕툕 ?뚯떛 濡쒖쭅
+            alternate = soup.select_one(".value")
+            if alternate:
+                return float(alternate.text.replace(",", ""))
+                
+            return 1350.0  # 理쒖쥌 ?덉쇅 ?ㅽ듃?뚰겕 ?먮윭 ??湲곕낯 諛⑹뼱 ?섏쑉
+        except Exception as e:
+            print(f"?섏쑉 ?섏쭛 以??먮윭 諛쒖깮: {e}")
+            return 1350.0
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\app\services\kr_stock.py
+----------------------------------------
+
+import requests
+from bs4 import BeautifulSoup
+
+class KrStockService:
+    @staticmethod
+    def get_realtime_price(symbol: str) -> dict:
+        """?ㅼ씠踰?湲덉쑖 ?ㅽ겕?섑븨???듯빐 ?쒓뎅 二쇱떇???ㅼ떆媛??쒖꽭瑜?議고쉶?⑸땲??"""
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
+        }
+        url = f"https://finance.naver.com/item/main.naver?code={symbol}"
+        try:
+            response = requests.get(url, headers=headers, timeout=5)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # ?꾩옱媛 ?뚯떛
+            no_today = soup.find('p', {'class': 'no_today'})
+            if not no_today: return None
+            blind_val = no_today.find('span', {'class': 'blind'})
+            current_price = int(blind_val.text.replace(',', ''))
+            
+            # ?깅씫瑜??뚯떛
+            no_exday = soup.find('p', {'class': 'no_exday'})
+            ico = no_exday.find('span', {'class': 'ico'})
+            is_down = "?섎씫" in ico.text if ico else False
+            
+            blind_chg = no_exday.find_all('span', {'class': 'blind'})
+            if len(blind_chg) >= 2:
+                chg_percent = float(blind_chg[1].text.replace('%', '').strip())
+                if is_down:
+                    chg_percent = -chg_percent
+            else:
+                chg_percent = 0.0
+                
+            return {
+                "current_price": current_price,
+                "chg_percent": chg_percent
+            }
+        except Exception as e:
+            print(f"?좑툘 [Service] ?쒓뎅 二쇨?({symbol}) 議고쉶 ?ㅽ뙣: {e}")
+        return None
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\app\services\us_stock.py
+----------------------------------------
+
+import requests
+from backend.app.config import Config
+
+class UsStockService:
+    @staticmethod
+    def get_realtime_price(symbol: str) -> dict:
+        """Finnhub API瑜??듯빐 誘멸뎅 二쇱떇???ㅼ떆媛??쒖꽭瑜?議고쉶?⑸땲??"""
+        api_key = Config.FINNHUB_API_KEY
+        if not api_key or "諛쒓툒諛쏆?" in api_key:
+            print(f"?좑툘 [Service] Finnhub API Key媛 ?щ컮瑜댁? ?딆뒿?덈떎. ({symbol} 議고쉶 ?ㅽ궢)")
+            return None
+
+        url = f"https://finnhub.io/api/v1/quote?symbol={symbol}&token={api_key}"
+        try:
+            response = requests.get(url, timeout=5)
+            data = response.json()
+            if "c" in data and data["c"] != 0:
+                return {
+                    "current_price": float(data["c"]),
+                    "chg_percent": float(data["dp"])
+                }
+        except Exception as e:
+            print(f"?좑툘 [Service] 誘멸뎅 二쇨?({symbol}) 議고쉶 ?ㅽ뙣: {e}")
+        return None
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\scripts\test_fdr.py
+----------------------------------------
+
+import FinanceDataReader as fdr
+
+df = fdr.StockListing("KRX")
+
+print(df.head())
+print(len(df))
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\backend\scripts\update_kr_stock_list.py
+----------------------------------------
+
+import os
+import sys
+import FinanceDataReader as fdr
+from supabase import create_client
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("??.env ?뺤씤")
+    sys.exit(1)
+
+print("?? Supabase ?곌껐 以?..")
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+print("?뵇 KRX ?꾩껜 醫낅ぉ 議고쉶 以?..")
+
+try:
+    df = fdr.StockListing("KRX")
+
+    print(f"?벀 珥?{len(df)}媛?醫낅ぉ 諛쒓껄")
+
+    bulk_data = []
+
+    for _, row in df.iterrows():
+        bulk_data.append({
+            "symbol": str(row["Code"]).zfill(6),
+            "name": row["Name"]
+        })
+
+    print("??Supabase ?낅줈???쒖옉...")
+
+    batch_size = 500
+
+    for i in range(0, len(bulk_data), batch_size):
+        batch = bulk_data[i:i + batch_size]
+
+        supabase.table("kr_stock_list") \
+            .upsert(batch, on_conflict="symbol") \
+            .execute()
+
+        print(f"??{min(i + batch_size, len(bulk_data))}/{len(bulk_data)} ?꾨즺")
+
+    print("?럦 紐⑤뱺 醫낅ぉ ?낅줈???꾨즺!")
+
+except Exception as e:
+    print("???ㅻ쪟:", e)
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\data\portfolio.json
+----------------------------------------
+
+{
+  "US": [
+    {"symbol": "NVDA", "quantity": 15, "avg_price": 120.5},
+    {"symbol": "PLTR", "quantity": 80, "avg_price": 35.2}
+  ],
+  "KR": [
+    {"symbol": "005930", "name": "?쇱꽦?꾩옄", "quantity": 20, "avg_price": 65000},
+    {"symbol": "000660", "name": "SK?섏씠?됱뒪", "quantity": 10, "avg_price": 180000}
+  ]
+}
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\frontend\templates\index.html
+----------------------------------------
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>?듯빀 ?먯궛 愿由???쒕낫??/title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-chart-line text-indigo-600 text-2xl"></i>
+                    <span class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">AssetFlow</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition">
+                        <i class="fa-regular fa-bell text-lg"></i>
+                    </button>
+                    <div class="h-8 w-px bg-slate-200"></div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold text-sm">CTO</div>
+                        <span class="text-sm font-medium text-slate-600 hidden sm:inline">愿由ъ옄 怨꾩젙</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">?먯궛 ?꾪솴 ??쒕낫??/h1>
+                <p class="text-sm text-slate-500 mt-1">?ㅼ떆媛??섏쑉 諛?援?궡??二쇱떇 ?ы듃?대━?ㅻ? ?듯빀 愿由ы빀?덈떎.</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm flex items-center space-x-4 self-start sm:self-center">
+                <div class="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+                    <i class="fa-solid fa-dollar-sign text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">?ㅼ떆媛?USD/KRW ?섏쑉</p>
+                    <p class="text-lg font-bold text-slate-800 mt-0.5" id="fx-rate">??濡쒕뵫 以?..</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-white shadow-md border border-slate-800">
+                <div class="flex justify-between items-start">
+                    <p class="text-sm font-medium text-slate-400">?듯빀 ?됯? 湲덉븸 (?먰솕)</p>
+                    <span class="p-2 bg-slate-800 text-slate-300 rounded-xl border border-slate-700">
+                        <i class="fa-solid fa-wallet text-sm"></i>
+                    </span>
+                </div>
+                <p class="text-3xl font-bold mt-4 tracking-tight" id="total-combined-krw">??濡쒕뵫 以?..</p>
+                <div class="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+                    <span>二쇱떇 諛??먰솕 ?꾧툑 ?먯궛 ?⑹궛</span>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div class="flex justify-between items-start">
+                    <p class="text-sm font-medium text-slate-400">援?궡 二쇱떇 ?됯???(KRW)</p>
+                    <span class="p-2 bg-rose-50 text-rose-600 rounded-xl">
+                        <i class="fa-solid fa-arrow-trend-up text-sm"></i>
+                    </span>
+                </div>
+                <p class="text-2xl font-bold text-slate-800 mt-4 tracking-tight" id="total-kr-eval">??濡쒕뵫 以?..</p>
+                <div class="mt-3 flex items-center space-x-2 text-sm" id="total-kr-profit-wrapper">
+                    <span class="font-semibold" id="total-kr-profit">0.0%</span>
+                    <span class="text-xs text-slate-400">珥??섏씡瑜?/span>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div class="flex justify-between items-start">
+                    <p class="text-sm font-medium text-slate-400">?댁쇅 二쇱떇 ?됯???(USD)</p>
+                    <span class="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                        <i class="fa-solid fa-globe text-sm"></i>
+                    </span>
+                </div>
+                <p class="text-2xl font-bold text-slate-800 mt-4 tracking-tight" id="total-us-eval">??濡쒕뵫 以?..</p>
+                <div class="mt-3 flex items-center space-x-2 text-sm" id="total-us-profit-wrapper">
+                    <span class="font-semibold" id="total-us-profit">0.0%</span>
+                    <span class="text-xs text-slate-400">珥??섏씡瑜?/span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm h-fit">
+                <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-plus-minus text-indigo-500"></i>
+                    <span>?ы듃?대━???먯궛 蹂寃?/span>
+                </h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">?쒖옣 援щ텇</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="market-kr-btn" onclick="setMarket('KR')" class="py-2.5 px-4 bg-indigo-50 text-indigo-600 border border-indigo-200 font-medium rounded-xl text-sm text-center transition">?쒓뎅 (KR)</button>
+                            <button id="market-us-btn" onclick="setMarket('US')" class="py-2.5 px-4 bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 font-medium rounded-xl text-sm text-center transition">誘멸뎅 (US)</button>
+                        </div>
+                    </div>
+
+                    <div class="relative">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">醫낅ぉ 寃??/label>
+                        <div class="relative">
+                            <input type="text" id="stock-search-input" oninput="searchStock()" placeholder="醫낅ぉ紐??먮뒗 ?곗빱 ?낅젰..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:bg-white transition">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+                        </div>
+                        <div id="search-results-dropdown" class="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto hidden z-50"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">嫄곕옒 ?섎웾</label>
+                            <input type="number" id="tx-quantity" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:bg-white transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2" id="price-label">泥닿껐 ?④? (??</label>
+                            <input type="number" id="tx-price" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 focus:bg-white transition">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 pt-2">
+                        <button onclick="submitTransaction('BUY')" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm">留ㅼ닔 ?깅줉</button>
+                        <button onclick="submitTransaction('SELL')" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm">留ㅻ룄 ?깅줉</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-pie text-violet-500"></i>
+                    <span>?ы듃?대━???먯궛 諛곕텇 援ъ“</span>
+                </h3>
+                <div id="weight-bar-container" class="space-y-4 mt-6">
+                    <p class="text-sm text-slate-400 py-8 text-center">???ы듃?대━??鍮꾩쨷 遺꾩꽍 ?붿쭊 湲곕룞 以?..</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
+            <div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2 h-5 bg-indigo-600 rounded-full"></span>
+                    <h3 class="text-base font-bold text-slate-900">蹂댁쑀 ?먯궛 ?곸꽭 ?뺣낫 紐낆꽭</h3>
+                </div>
+                <div class="bg-slate-100 p-1 rounded-xl flex space-x-1 self-start sm:self-center">
+                    <button id="tab-kr-btn" onclick="switchTableTab('KR')" class="px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition">援?궡 二쇱떇 (KR)</button>
+                    <button id="tab-us-btn" onclick="switchTableTab('US')" class="px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition">?댁쇅 二쇱떇 (US)</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto w-full">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-semibold text-xs tracking-wider uppercase">
+                            <th class="py-3 px-6">?곗빱/肄붾뱶</th>
+                            <th class="py-3 px-6">醫낅ぉ紐?/th>
+                            <th class="py-3 px-6 text-right">蹂댁쑀 ?섎웾</th>
+                            <th class="py-3 px-6 text-right">?됯퇏 ?④?</th>
+                            <th class="py-3 px-6 text-right">?꾩옱媛</th>
+                            <th class="py-3 px-6 text-right">?됯? 湲덉븸</th>
+                            <th class="py-3 px-6 text-right">?됯? ?먯씡</th>
+                            <th class="py-3 px-6 text-right">?섏씡瑜?/th>
+                            <th class="py-3 px-6 text-center">鍮꾩쨷</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portfolio-table-body" class="text-sm text-slate-600 divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="9" class="py-12 text-center text-slate-400">
+                                <i class="fa-solid fa-spinner fa-spin mr-2"></i> ?먯궛 濡쒕뱶 ?뚯씠?꾨씪??媛??以?..
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentMarket = 'KR';
+        let currentTableTab = 'KR';
+        let selectedStock = null;
+        let globalPortfolioData = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchPortfolioData();
+            setInterval(fetchPortfolioData, 15000); // 15珥??먮룞 ?덈줈怨좎묠 ??
+        });
+
+        function setMarket(market) {
+            currentMarket = market;
+            const krBtn = document.getElementById('market-kr-btn');
+            const usBtn = document.getElementById('market-us-btn');
+            const priceLabel = document.getElementById('price-label');
+            
+            selectedStock = null;
+            document.getElementById('stock-search-input').value = '';
+
+            if (market === 'KR') {
+                krBtn.className = "py-2.5 px-4 bg-indigo-50 text-indigo-600 border border-indigo-200 font-medium rounded-xl text-sm text-center transition";
+                usBtn.className = "py-2.5 px-4 bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 font-medium rounded-xl text-sm text-center transition";
+                priceLabel.innerText = "泥닿껐 ?④? (??";
+            } else {
+                usBtn.className = "py-2.5 px-4 bg-indigo-50 text-indigo-600 border border-indigo-200 font-medium rounded-xl text-sm text-center transition";
+                krBtn.className = "py-2.5 px-4 bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 font-medium rounded-xl text-sm text-center transition";
+                priceLabel.innerText = "泥닿껐 ?④? ($)";
+            }
+        }
+
+        async function searchStock() {
+            const query = document.getElementById('stock-search-input').value.trim();
+            const dropdown = document.getElementById('search-results-dropdown');
+            
+            if (!query) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/stock/search?market=${currentMarket}&query=${encodeURIComponent(query)}`);
+                const items = await response.json();
+                
+                if (!items || items.length === 0) {
+                    dropdown.innerHTML = '<div class="p-3 text-xs text-slate-400 text-center">寃??寃곌낵媛 ?놁뒿?덈떎.</div>';
+                    dropdown.classList.remove('hidden');
+                    return;
+                }
+
+                dropdown.innerHTML = items.map(item => `
+                    <div onclick="selectStock('${item.symbol}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition">
+                        <span class="font-medium text-slate-800">${item.name}</span>
+                        <span class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500">${item.symbol}</span>
+                    </div>
+                `).join('');
+                dropdown.classList.remove('hidden');
+            } catch (e) {
+                console.error("寃???ㅽ뙣", e);
+            }
+        }
+
+        function selectStock(symbol, name) {
+            selectedStock = { symbol, name };
+            document.getElementById('stock-search-input').value = `${name} (${symbol})`;
+            document.getElementById('search-results-dropdown').classList.add('hidden');
+        }
+
+        async function submitTransaction(txType) {
+            if (!selectedStock) {
+                alert("醫낅ぉ??癒쇱? 寃?됲븯???좏깮??二쇱떗?쒖삤.");
+                return;
+            }
+            const qty = parseFloat(document.getElementById('tx-quantity').value);
+            const price = parseFloat(document.getElementById('tx-price').value);
+
+            if (!qty || qty <= 0 || !price || price <= 0) {
+                alert("?щ컮瑜??섎웾怨?媛寃⑹쓣 ?낅젰??二쇱떗?쒖삤.");
+                return;
+            }
+
+            const payload = {
+                market: currentMarket,
+                symbol: selectedStock.symbol,
+                name: selectedStock.name,
+                tx_type: txType,
+                quantity: qty,
+                avg_price: price
+            };
+
+            try {
+                const res = await fetch('/api/portfolio/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    alert(`${txType === 'BUY' ? '留ㅼ닔' : '留ㅻ룄'} ?깅줉???깃났?곸쑝濡??꾨즺?섏뿀?듬땲??`);
+                    document.getElementById('tx-quantity').value = '';
+                    document.getElementById('tx-price').value = '';
+                    document.getElementById('stock-search-input').value = '';
+                    selectedStock = null;
+                    fetchPortfolioData();
+                } else {
+                    alert(`?ㅽ뙣: ${result.message}`);
+                }
+            } catch (e) {
+                alert("?쒕쾭 ?듭떊 ?μ븷媛 諛쒖깮?덉뒿?덈떎.");
+            }
+        }
+
+        async function fetchPortfolioData() {
+            try {
+                const response = await fetch('/api/portfolio');
+                const data = await response.json();
+                
+                if (data.status === 'error') {
+                    console.error(data.message);
+                    return;
+                }
+
+                globalPortfolioData = data;
+                renderDashboardMetrics(data);
+                renderPortfolioTable();
+                renderWeightVisualization(data);
+            } catch (e) {
+                console.error("?ы듃?대━???곗씠???숆린???ㅽ뙣", e);
+            }
+        }
+
+        function renderDashboardMetrics(data) {
+            document.getElementById('fx-rate').innerText = `??{data.exchange_rate.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}`;
+            document.getElementById('total-combined-krw').innerText = `??{data.combined_total_krw.toLocaleString()}`;
+            document.getElementById('total-kr-eval').innerText = `??{data.total_evaluation_krw.toLocaleString()}`;
+            document.getElementById('total-us-eval').innerText = `$${data.total_evaluation_usd.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+
+            renderProfitLabel('total-kr-profit', 'total-kr-profit-wrapper', data.profit_rate_krw);
+            renderProfitLabel('total-us-profit', 'total-us-profit-wrapper', data.profit_rate_usd);
+        }
+
+        function renderProfitLabel(labelId, wrapperId, profit) {
+            const label = document.getElementById(labelId);
+            const wrapper = document.getElementById(wrapperId);
+            const sign = profit > 0 ? '+' : '';
+            
+            label.innerText = `${sign}${profit}%`;
+            if (profit > 0) {
+                wrapper.className = "mt-3 flex items-center space-x-2 text-sm text-rose-600";
+            } else if (profit < 0) {
+                wrapper.className = "mt-3 flex items-center space-x-2 text-sm text-blue-600";
+            } else {
+                wrapper.className = "mt-3 flex items-center space-x-2 text-sm text-slate-500";
+            }
+        }
+
+        function switchTableTab(tab) {
+            currentTableTab = tab;
+            const krBtn = document.getElementById('tab-kr-btn');
+            const usBtn = document.getElementById('tab-us-btn');
+
+            if (tab === 'KR') {
+                krBtn.className = "px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition";
+                usBtn.className = "px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition";
+            } else {
+                usBtn.className = "px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition";
+                krBtn.className = "px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition";
+            }
+            renderPortfolioTable();
+        }
+
+        function renderPortfolioTable() {
+            if (!globalPortfolioData) return;
+            const tableBody = document.getElementById('portfolio-table-body');
+            const stocks = globalPortfolioData.portfolio[currentTableTab] || [];
+
+            if (stocks.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">蹂댁쑀 ?먯궛??議댁옱?섏? ?딆뒿?덈떎.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = stocks.map(stock => {
+                const profitSign = stock.total_profit > 0 ? '+' : '';
+                const profitClass = stock.total_profit > 0 ? 'text-rose-600 font-medium' : stock.total_profit < 0 ? 'text-blue-600 font-medium' : 'text-slate-500';
+                const isUS = currentTableTab === 'US';
+                
+                return `
+                    <tr class="hover:bg-slate-50/80 transition duration-150">
+                        <td class="py-3.5 px-6 font-mono text-xs font-semibold text-slate-400">${stock.symbol}</td>
+                        <td class="py-3.5 px-6 font-medium text-slate-800">${stock.name}</td>
+                        <td class="py-3.5 px-6 text-right font-medium">${stock.quantity.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right font-mono text-xs">${isUS ? '$' : '??}${stock.avg_price.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right font-mono text-xs text-indigo-600 font-medium">${isUS ? '$' : '??}${stock.current_price.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right font-semibold text-slate-700">${isUS ? '$' : '??}${stock.eval_amount.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right font-mono text-xs ${profitClass}">${profitSign}${stock.total_profit.toLocaleString()}</td>
+                        <td class="py-3.5 px-6 text-right font-mono text-xs ${profitClass}">${profitSign}${stock.total_profit_percent}%</td>
+                        <td class="py-3.5 px-6 text-center">
+                            <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md font-mono text-xs font-bold">${stock.weight_percent}%</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderWeightVisualization(data) {
+            const container = document.getElementById('weight-bar-container');
+            const allStocks = [...(data.portfolio.KR || []), ...(data.portfolio.US || [])];
+            
+            if (allStocks.length === 0) {
+                container.innerHTML = '<p class="text-sm text-slate-400 py-8 text-center">?먯궛???깅줉?섏떆硫??ㅼ떆媛?遺꾩궛 鍮꾩쨷 遺꾩꽍???쒖꽦?붾맗?덈떎.</p>';
+                return;
+            }
+
+            allStocks.sort((a, b) => b.weight_percent - a.weight_percent);
+            
+            container.innerHTML = allStocks.map((stock, index) => {
+                const colorPalette = ['bg-indigo-500', 'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500', 'bg-rose-500'];
+                const barColor = colorPalette[index % colorPalette.length];
+                
+                return `
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs font-medium">
+                            <span class="text-slate-700">${stock.name} <span class="text-slate-400 font-mono ml-1">(${stock.symbol})</span></span>
+                            <span class="text-slate-900 font-bold font-mono">${stock.weight_percent}%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="${barColor} h-full rounded-full transition-all duration-1000 ease-out" style="width: ${stock.weight_percent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
+
+
+
+----------------------------------------
+FILE: D:\Project\InvestmentDashboard\instance\investment.db
+----------------------------------------
+
+SQLite format 3   @                                                                     .?
+????                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ?++긛tablestock_portfoliostock_portfolioCREATE TABLE stock_portfolio (
+	id INTEGER NOT NULL, 
+	market VARCHAR(10) NOT NULL, 
+	symbol VARCHAR(20) NOT NULL, 
+	name VARCHAR(100), 
+	quantity FLOAT NOT NULL, 
+	avg_price FLOAT NOT NULL, 
+	PRIMARY KEY (id), 
+	UNIQUE (symbol)
+)=Q+ indexsqlite_autoindex_stock_portfolio_1stock_portfolio       
+I ????)]~?                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                0
+ CUSQQQInvesco QQQ Trust  Series 1@괋??! )USMSFTMicrosoft Corp ?  KRLS200({ #KR010120LS ELECTRIC ?( 	 )	KR000660SK?섏씠?됱뒪놈  %KR005930?쇱꽦?꾩옄 翕 USPLTRPalantirP@A솛솛솞 USNVDANVIDIA@^      
+   ????????                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  MSFT
+000660	L
+010120QQQ
+60
+005930PLTR	NVDA
+
+
+

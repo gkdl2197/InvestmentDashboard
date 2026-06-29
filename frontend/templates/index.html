@@ -101,7 +101,7 @@
             <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm h-fit">
                 <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center space-x-2">
                     <i class="fa-solid fa-plus-minus text-indigo-500"></i>
-                    <span>포트폴리오 자산 변경</span>
+                    <span>자산 업데이트</span>
                 </h3>
                 
                 <div class="space-y-4">
@@ -143,7 +143,7 @@
             <div class="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center space-x-2">
                     <i class="fa-solid fa-chart-pie text-violet-500"></i>
-                    <span>포트폴리오 자산 배분 구조</span>
+                    <span>자산 배분 구조</span>
                 </h3>
                 <div id="weight-bar-container" class="space-y-4 mt-6">
                     <p class="text-sm text-slate-400 py-8 text-center">⏳ 포트폴리오 비중 분석 엔진 기동 중...</p>
@@ -155,7 +155,7 @@
             <div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div class="flex items-center space-x-2">
                     <span class="w-2 h-5 bg-indigo-600 rounded-full"></span>
-                    <h3 class="text-base font-bold text-slate-900">보유 자산 상세 정보 명세</h3>
+                    <h3 class="text-base font-bold text-slate-900">보유 자산</h3>
                 </div>
                 <div class="bg-slate-100 p-1 rounded-xl flex space-x-1 self-start sm:self-center">
                     <button id="tab-kr-btn" onclick="switchTableTab('KR')" class="px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition">국내 주식 (KR)</button>
@@ -366,8 +366,14 @@
             const tableBody = document.getElementById('portfolio-table-body');
             const stocks = globalPortfolioData.portfolio[currentTableTab] || [];
 
+            // 테이블 헤더 열 매칭을 위해 th 개수 확인 (Thead에 '관리' 열이 없다면 동적으로 채우거나 유지)
+            const thead = document.querySelector("table thead tr");
+            if (thead && !thead.innerHTML.includes("관리")) {
+                thead.innerHTML += `<th class="py-3 px-6 text-center">관리</th>`;
+            }
+
             if (stocks.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">보유 자산이 존재하지 않습니다.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-slate-400">보유 자산이 존재하지 않습니다.</td></tr>`;
                 return;
             }
 
@@ -389,9 +395,40 @@
                         <td class="py-3.5 px-6 text-center">
                             <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md font-mono text-xs font-bold">${stock.weight_percent}%</span>
                         </td>
+                        <td class="py-3.5 px-6 text-center">
+                            <button onclick="deleteStock('${stock.symbol}', '${stock.name}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition duration-150" title="자산 삭제">
+                                <i class="fa-solid fa-trash-can text-sm"></i>
+                            </button>
+                        </td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        // 💡 [삭제 요청 스크립트 엔진]
+        async function deleteStock(symbol, name) {
+            if (!confirm(`[경고] 정말로 ${name} (${symbol}) 종목을 포트폴리오 명세에서 영구 삭제하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/portfolio/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        symbol: symbol,
+                        tx_type: 'DELETE'
+                    })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    fetchPortfolioData(); // 대시보드 리로드
+                } else {
+                    alert(`삭제 실패: ${result.message}`);
+                }
+            } catch (e) {
+                alert("서버 통신 중 오류가 발생했습니다.");
+            }
         }
 
         function renderWeightVisualization(data) {

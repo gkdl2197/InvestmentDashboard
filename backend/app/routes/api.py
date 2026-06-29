@@ -203,7 +203,6 @@ def get_portfolio():
 @api_blueprint.route("/portfolio/save", methods=["POST"])
 def save_portfolio():
     supabase = get_supabase()
-
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     
@@ -215,12 +214,16 @@ def save_portfolio():
     input_qty = float(data.get("quantity", 0))
     input_price = float(data.get("avg_price", 0))
     
-    if not symbol:
+    if not symbol: 
         return jsonify({"status": "error", "message": "종목 코드가 누락되었습니다."}), 400
 
     try:
+        # 💡 [정밀 수술] tx_type이 DELETE인 경우 보유 수량 상관없이 DB에서 즉시 영구 삭제
+        if tx_type == "DELETE":
+            supabase.table("stock_portfolio").delete().eq("symbol", symbol).execute()
+            return jsonify({"status": "success", "message": "종목이 포트폴리오에서 삭제되었습니다."})
+
         existing = supabase.table("stock_portfolio").select("*").eq("symbol", symbol).execute()
-        
         if existing.data and len(existing.data) > 0:
             current_stock = existing.data[0]
             old_qty = float(current_stock.get("quantity", 0) or 0)
@@ -229,33 +232,21 @@ def save_portfolio():
             if tx_type == "BUY":
                 new_qty = old_qty + input_qty
                 new_price = ((old_price * old_qty) + (input_price * input_qty)) / new_qty if new_qty > 0 else 0
-                
                 supabase.table("stock_portfolio").update({
-                    "quantity": new_qty, 
-                    "avg_price": round(new_price, 2) if market=="US" else int(new_price)
+                    "quantity": new_qty, "avg_price": round(new_price, 2) if market=="US" else int(new_price)
                 }).eq("symbol", symbol).execute()
-                
-            else:
+            elif tx_type == "SELL":
                 new_qty = old_qty - input_qty
-                
-                if new_qty <= 0:
+                if new_qty <= 0: 
                     supabase.table("stock_portfolio").delete().eq("symbol", symbol).execute()
-                else:
-                    supabase.table("stock_portfolio").update({
-                        "quantity": new_qty
-                    }).eq("symbol", symbol).execute()
+                else: 
+                    supabase.table("stock_portfolio").update({"quantity": new_qty}).eq("symbol", symbol).execute()
         else:
-            if tx_type == "SELL":
+            if tx_type == "SELL": 
                 return jsonify({"status": "error", "message": "보유하지 않은 종목은 매도할 수 없습니다."}), 400
-                
             supabase.table("stock_portfolio").insert({
-                "market": market, 
-                "symbol": symbol, 
-                "name": name,
-                "quantity": input_qty, 
-                "avg_price": input_price
+                "market": market, "symbol": symbol, "name": name, "quantity": input_qty, "avg_price": input_price
             }).execute()
-
         return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
