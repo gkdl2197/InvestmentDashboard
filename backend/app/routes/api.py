@@ -1,26 +1,30 @@
 # ==========================================
 # PROJECT: INVESTMENT DASHBOARD
-# VERSION: v1.6.2 (Ultimate Execution Unification)
+# VERSION: v1.6.3 (Current App Context Binding)
 # DATE: 2026-06-29
 # AUTHOR: 제대리 (Gemini) & CTO
-# DESCRIPTION: 순환 참조(Circular Import) 원천 차단 및 주식/부동산 360라인 무생략 성역 본문
+# DESCRIPTION: current_app 기반 supabase 바인딩으로 주식 데이터 유실 원천 차단본
 # ==========================================
 import os
 import requests
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from dotenv import load_dotenv
 
 load_dotenv()
 
 api_blueprint = Blueprint("api", __name__)
 
+# 💡 안전한 Supabase 객체 추출 헬퍼 함수
+def get_supabase_client():
+    # main.py에서 app.supabase = supabase 형태로 등록해둔 객체를 안전하게 꺼냅니다.
+    return getattr(current_app, 'supabase', None)
+
 # ==========================================
 # [CORE 1] 주식 전용 엔진 파이프라인 (오리지널 100% 보존)
 # ==========================================
 @api_blueprint.route("/stock/search", methods=["GET"])
 def search_stock():
-    # 💡 순환 참조 해결을 위해 함수 내부에서 무결하게 메인 객체를 참조합니다.
-    from main import supabase
+    supabase = get_supabase_client()
     if not supabase:
         return jsonify([])
 
@@ -90,7 +94,7 @@ def search_stock():
 
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
-    from main import supabase
+    supabase = get_supabase_client()
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
 
@@ -179,7 +183,7 @@ def get_portfolio():
 
 @api_blueprint.route("/portfolio/save", methods=["POST"])
 def save_portfolio():
-    from main import supabase
+    supabase = get_supabase_client()
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     
@@ -238,7 +242,7 @@ def save_portfolio():
 # ==========================================
 @api_blueprint.route("/real-estate", methods=["GET"])
 def get_real_estate():
-    from main import supabase
+    supabase = get_supabase_client()
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
@@ -283,7 +287,7 @@ def get_real_estate():
 
 @api_blueprint.route("/real-estate/save", methods=["POST"])
 def save_real_estate():
-    from main import supabase
+    supabase = get_supabase_client()
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
