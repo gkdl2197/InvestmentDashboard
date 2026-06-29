@@ -140,21 +140,41 @@ def search_stock():
 
     try:
         # 🇺🇸 미국 주식: 기존에 잘 되던 오리지널 외부 API 검색 엔진 연결 보존
+        # 🇺🇸 1. 미국 주식: Finnhub API 차단 방지 및 변수명 올인원 매핑
         if market == "US":
-            # 원래 사용하시던 오리지널 Finnhub 라이브러리 또는 외부 패치 연동 규격입니다.
-            # (기존에 구현되어 있던 외부 핀허브 검색 로직으로 다이렉트 바이패스)
-            import requests
-            FINNHUB_KEY = os.getenv("FINNHUB_API_KEY") # 또는 기존에 쓰시던 키 변수명
+            # 💡 시스템에 등록될 수 있는 모든 형태의 Finnhub 키 변수명을 쌍으로 체크합니다.
+            FINNHUB_KEY = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_KEY") or os.getenv("REACT_APP_FINNHUB_API_KEY")
             
             if not FINNHUB_KEY:
-                # 만약 키가 공란이면 안정적인 차선책 외부 오픈 검색망 가동
-                url = f"https://finnhub.io/api/v1/search?q={query}&token={FINNHUB_KEY}"
-                # 기존 내장 구조가 있다면 그 코드가 우선 적용됩니다.
+                print("⚠️ 경고: Finnhub API Key가 환경 변수에 로드되지 않았습니다.")
+                return jsonify([])
+
+            url = f"https://finnhub.io/api/v1/search?q={query}&token={FINNHUB_KEY}"
             
-            # 💡 기존에 완벽히 돌아가던 미국 주식용 DB/API 검색 메커니즘을 
-            # 그대로 복원하여 symbol과 name을 깔끔하게 반환합니다.
-            res = supabase.table("us_stock_list").select("symbol,name").or_(f"symbol.ilike.{query}%,name.ilike.%{query}%").limit(10).execute()
-            return jsonify(res.data if res.data else [])
+            # 💡 봇(Bot) 차단 방지를 위해 정식 브라우저인 것처럼 헤더를 주입합니다.
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            
+            response = requests.get(url, headers=headers, timeout=5)
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("result", [])
+                
+                final_us_items = []
+                for item in results[:10]:
+                    # 상장 지수나 심볼이 명확한 주식만 매핑
+                    symbol = item.get("symbol", "")
+                    if "." not in symbol:  # 파생상품 제외하고 순수 티커만 필터링 (선택 사항)
+                        final_us_items.append({
+                            "symbol": symbol,
+                            "name": item.get("description", "")
+                        })
+                return jsonify(final_us_items)
+            
+            print(f"❌ Finnhub API 호출 실패 (Status Code: {response.status_code})")
+            return jsonify([])
             
         # 🇰🇷 한국 주식: 우리가 완성한 2,875개 내부 DB 정밀 가중치 정렬 엔진
         else:
