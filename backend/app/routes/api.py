@@ -1,41 +1,27 @@
 # ==========================================
 # PROJECT: INVESTMENT DASHBOARD
-# VERSION: v1.6.9 (Ultimate Runtime Lazy Initialization Core)
-# Date: 2026-06-29
-# AUTHOR: 제대리 (Gemini) & CTO
-# DESCRIPTION: 주식 원본 267라인 100% 원형 보존 + 전역 초기화 완전 제거로 500 크래시 영구 박멸
+# VERSION: v1.6.10 (Correct Module Path Integration)
+# DATE: 2026-06-29
+# AUTHOR: CTO & 제대리 (Gemini)
+# DESCRIPTION: CTO님이 찾아내신 정식 모듈 경로 이식 완료, 주식(실시간)+부동산 완벽 통합본
 # ==========================================
 import os
 import requests
 from flask import Blueprint, request, jsonify
-from dotenv import load_dotenv
-from supabase import create_client
+from app import supabase
 
+# 💡 완벽한 해결책: CTO님께서 정정하신 무결한 백엔드 패스 규격으로 서비스를 임포트합니다.
 from backend.app.services.kr_stock import KrStockService
 from backend.app.services.us_stock import UsStockService
 from backend.app.services.exchange_rate import ExchangeRateService
 
-load_dotenv()
-
 api_blueprint = Blueprint("api", __name__)
 
-# 💡 초정밀 수술: 서버리스 크래시를 원천 차단하기 위해 런타임에 안전하게 클라이언트를 반환하는 래퍼 함수를 정의합니다.
-def get_supabase_client():
-    url = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
-    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
-    if not url or not key:
-        return None
-    try:
-        return create_client(url, key)
-    except Exception:
-        return None
-
 # ==========================================
-# [CORE 1] 주식 전용 엔진 파이프라인 (오리지널 100% 원본 보존 단락)
+# [CORE 1] 주식 전용 엔진 파이프라인 (오리지널 100% 원형 보존 단락)
 # ==========================================
 @api_blueprint.route("/stock/search", methods=["GET"])
 def search_stock():
-    supabase = get_supabase_client()
     if not supabase:
         return jsonify([])
 
@@ -105,7 +91,6 @@ def search_stock():
 
 @api_blueprint.route("/portfolio", methods=["GET"])
 def get_portfolio():
-    supabase = get_supabase_client()
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
 
@@ -116,6 +101,7 @@ def get_portfolio():
     except Exception as e:
         return jsonify({"status": "error", "message": f"DB 로드 에러: {str(e)}"}), 500
 
+    # 정확한 경로에서 불러온 환율 서비스 엔진을 가동합니다.
     exchange_rate = ExchangeRateService().get_usd_krw() or 1350.0
     portfolio = {"KR": [], "US": []}
     
@@ -151,6 +137,7 @@ def get_portfolio():
             }
             
             if market == "US":
+                # 정밀 매핑된 오리지널 미국 실시간 가격 반영 엔진
                 rt = UsStockService.get_realtime_price(symbol)
                 stock_data["purchase_amount"] = round(avg_p * qty, 2)
                 if rt:
@@ -164,6 +151,7 @@ def get_portfolio():
                 total_pur_usd += stock_data["purchase_amount"]
                 total_eval_usd += stock_data["eval_amount"]
             else:
+                # 정밀 매핑된 오리지널 한국 실시간 가격 반영 엔진
                 rt = KrStockService.get_realtime_price(symbol)
                 stock_data["purchase_amount"] = int(avg_p * qty)
                 if rt:
@@ -205,7 +193,6 @@ def get_portfolio():
 
 @api_blueprint.route("/portfolio/save", methods=["POST"])
 def save_portfolio():
-    supabase = get_supabase_client()
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     
@@ -268,7 +255,6 @@ def save_portfolio():
 # ==========================================
 @api_blueprint.route("/real-estate", methods=["GET"])
 def get_real_estate():
-    supabase = get_supabase_client()
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
@@ -326,7 +312,6 @@ def get_real_estate():
 
 @api_blueprint.route("/real-estate/save", methods=["POST"])
 def save_real_estate():
-    supabase = get_supabase_client()
     if not supabase: 
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
