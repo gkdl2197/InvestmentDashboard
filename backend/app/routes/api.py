@@ -1,25 +1,22 @@
 # ==========================================
 # PROJECT: INVESTMENT DASHBOARD
-# VERSION: v1.7.1 (Pure Original Restoration)
+# VERSION: v1.5.0 (Pure Original Rollback - Sanctuary)
 # DATE: 2026-06-29
 # AUTHOR: CTO & 제대리 (Gemini)
-# DESCRIPTION: 오전에 콸콸 잘 나오던 주식 원본 100% 그대로 복구 + 부동산 하단 단순 추가
+# DESCRIPTION: 오전에 100% 완벽하게 가동되던 주식 전용 오리지널 소스코드 완전 원복본
 # ==========================================
 import os
 import requests
 from flask import Blueprint, request, jsonify
 from app import supabase
 
-# CTO님이 직접 바로잡으신 무결한 백엔드 패스 임포트 규격 보존
+# 💡 오전에 완벽하게 작동했던 정식 백엔드 모듈 경로 그대로 복구
 from backend.app.services.kr_stock import KrStockService
 from backend.app.services.us_stock import UsStockService
 from backend.app.services.exchange_rate import ExchangeRateService
 
 api_blueprint = Blueprint("api", __name__)
 
-# ==========================================
-# [CORE 1] 오전에 완벽하게 작동했던 주식 코어 파이프라인 (원본 100% 보존)
-# ==========================================
 @api_blueprint.route("/stock/search", methods=["GET"])
 def search_stock():
     if not supabase:
@@ -243,97 +240,3 @@ def save_portfolio():
         return jsonify({"status": "success"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
-# ==========================================
-# [CORE 2] 부동산 전용 CRUD 파이프라인 (맨 밑에 안전하게 배치)
-# ==========================================
-@api_blueprint.route("/real-estate", methods=["GET"])
-def get_real_estate():
-    if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
-    try:
-        res = supabase.table("real_estate_portfolio").select("*").order("created_at").execute()
-        db_estates = res.data if res.data else []
-        
-        holding_assets = []
-        watch_assets = []
-        
-        total_eval_re = 0
-        total_debt_re = 0
-        net_lease_cash = 0 
-
-        for item in db_estates:
-            is_watch = item.get("is_watchlist", False)
-            c_price = float(item.get("current_price", 0) or 0)
-            debt = float(item.get("debt", 0) or 0)
-            
-            estate_data = {
-                "id": item.get("id"),
-                "name": item.get("name"),
-                "estate_type": item.get("estate_type"),
-                "holding_type": item.get("holding_type"),
-                "purchase_price": float(item.get("purchase_price", 0) or 0),
-                "current_price": c_price,
-                "debt": debt,
-                "monthly_rent": float(item.get("monthly_rent", 0) or 0),
-                "expiry_date": item.get("expiry_date"),
-                "target_price": float(item.get("target_price", 0) or 0)
-            }
-
-            if is_watch:
-                watch_assets.append(estate_data)
-            else:
-                holding_assets.append(estate_data)
-                total_eval_re += c_price
-                total_debt_re += debt
-                
-                if item.get("holding_type") == "LEASE":
-                    net_lease_cash += (c_price - debt)
-
-        net_worth_re = total_eval_re - total_debt_re
-
-        return jsonify({
-            "total_evaluation_re": total_eval_re,
-            "total_debt_re": total_debt_re,
-            "net_worth_re": net_worth_re,
-            "net_lease_cash": net_lease_cash, 
-            "holding_assets": holding_assets,
-            "watch_assets": watch_assets
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"부동산 로드 실패: {str(e)}"}), 500
-
-
-@api_blueprint.route("/real-estate/save", methods=["POST"])
-def save_real_estate():
-    if not supabase: 
-        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
-    try:
-        data = request.get_json()
-        
-        if data.get("action") == "DELETE":
-            asset_id = data.get("id")
-            if asset_id:
-                supabase.table("real_estate_portfolio").delete().eq("id", asset_id).execute()
-                return jsonify({"status": "success", "message": "부동산 삭제 완료"})
-            return jsonify({"status": "error", "message": "식별 ID 누락"}), 400
-
-        payload = {
-            "name": data.get("name"),
-            "estate_type": data.get("estate_type"),
-            "holding_type": data.get("holding_type", "OWN"),
-            "purchase_price": float(data.get("purchase_price") or 0),
-            "current_price": float(data.get("current_price") or 0),
-            "debt": float(data.get("debt") or 0),
-            "monthly_rent": float(data.get("monthly_rent") or 0),
-            "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
-            "target_price": float(data.get("target_price") or 0),
-            "expiry_date": data.get("expiry_date") if data.get("expiry_date") else None
-        }
-
-        supabase.table("real_estate_portfolio").upsert(payload, on_conflict="name").execute()
-        return jsonify({"status": "success"})
-        
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"부동산 저장 실패: {str(e)}"}), 500
