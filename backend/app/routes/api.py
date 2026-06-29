@@ -212,8 +212,11 @@ def get_portfolio():
                 total_eval_krw += stock_data["eval_amount"]
 
             portfolio[market].append(stock_data)
-        except Exception:
-            continue
+        except Exception as e:
+            print("="*80)
+            print(stock)
+            traceback.print_exc()
+            raise
 
     combined_total_krw = total_eval_krw + int(total_eval_usd * exchange_rate)
 
