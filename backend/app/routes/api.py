@@ -316,47 +316,40 @@ def save_real_estate():
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
 
     # ==========================================
-# [신규 기능] 네이버 부동산 공식 백본망 기반 단지 검색 API
-# ==========================================
 @api_blueprint.route("/real-estate/search", methods=["GET"])
 def search_real_estate():
     query = request.args.get("query", "").strip()
     if not query:
         return jsonify([])
+    
+    supabase = get_supabase()
+    if not supabase:
+        print("❌ [RE-SEARCH] Supabase 클라이언트 초기화 실패")
+        return jsonify([])
+
     try:
-        url = f"https://fin.land.naver.com/front-api/v1/search/autocomplete/complexes?keyword={requests.utils.quote(query)}&size=10&page=0"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Referer": "https://fin.land.naver.com/",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "ko-KR,ko;q=0.9",
-            "Origin": "https://fin.land.naver.com",
-        }
-        res = requests.get(url, headers=headers, timeout=10)   # ← 5 → 10
+        res = supabase.table("real_estate_complexes")\
+            .select("complex_code, complex_name, sido, sigungu, dong")\
+            .ilike("complex_name", f"%{query}%")\
+            .limit(15)\
+            .execute()
 
-        if res.status_code != 200:
-            print(f"[RE-SEARCH] HTTP {res.status_code}")
-            return jsonify([])
-
-        data = res.json()
-        if not data.get("isSuccess"):
-            return jsonify([])
-
-        items = data.get("result", {}).get("list", [])
         output = []
-        for item in items:
-            complex_no = str(item.get("complexNumber", ""))
-            name = item.get("complexName", "")
-            region = item.get("legalDivisionName", "")
-            if not complex_no or not name:
-                continue
-            output.append({
-                "complexNo": complex_no,
-                "name": f"{name} ({region})" if region else name
-            })
+        if res.data:
+            for item in res.data:
+                name = item.get("complex_name", "")
+                sido = item.get("sido", "")
+                sigungu = item.get("sigungu", "")
+                dong = item.get("dong", "")
+                region = f"{sido} {sigungu} {dong}".strip()
+
+                output.append({
+                    "complexNo": item.get("complex_code", ""),
+                    "name": f"{name} ({region})" if region else name
+                })
 
         return jsonify(output)
 
     except Exception as e:
-        print(f"❌ 부동산 검색 엔드포인트 예외: {str(e)}")
+        print(f"❌ 부동산 검색(DB) 엔드포인트 예외: {str(e)}")
         return jsonify([])
