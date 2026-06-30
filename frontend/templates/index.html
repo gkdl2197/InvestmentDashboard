@@ -110,7 +110,6 @@
                         <i class="fa-solid fa-plus-minus text-indigo-500"></i>
                         <span>포트폴리오 자산 변경</span>
                     </h3>
-                    
                     <div class="space-y-4">
                         <div>
                             <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">시장 구분</label>
@@ -533,6 +532,8 @@
                 
                 renderProfitLabel('total-kr-profit', 'total-kr-profit-wrapper', data.profit_rate_krw);
                 renderProfitLabel('total-us-profit', 'total-us-profit-wrapper', data.profit_rate_usd);
+                
+                // 💡 [긴급 복구] 제대리가 빠트렸던 렌더링 호출 컨트롤러 정밀 주입
                 renderPortfolioTable();
                 renderWeightVisualization(data);
             } catch (e) {}
@@ -597,7 +598,7 @@
                     dropdown.classList.remove('hidden'); return;
                 }
                 dropdown.innerHTML = items.map(item => `
-                    <div onclick="selectRealEstate('${item.complexNo}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition">
+                    <div onclick="selectRealEstate('${item.complexNo}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50/80 cursor-pointer flex justify-between items-center transition">
                         <span class="font-medium text-slate-800 whitespace-nowrap">${item.name}</span>
                         <span class="text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded text-indigo-500">코드:${item.complexNo}</span>
                     </div>
