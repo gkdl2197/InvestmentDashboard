@@ -216,9 +216,13 @@
                     <span>부동산 자산 및 전세 거주 등록</span>
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">매물명/거주지 명칭</label>
-                        <input type="text" id="re-name" placeholder="예: 은마아파트" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
+                    <div class="relative">
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">매물명/아파트 단지명 검색</label>
+                        <div class="relative">
+                            <input type="text" id="re-name" oninput="searchRealEstate()" placeholder="예: 은마아파트, 아크로리버..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
+                            <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-3.5 text-slate-400 text-sm"></i>
+                        </div>
+                        <div id="re-search-dropdown" class="absolute left-0 right-0 mt-1 bg-white border border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto hidden z-50"></div>
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">자산 유형</label>
@@ -230,7 +234,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">보유/거주 형태</label>
-                        <select id="re-holding" onchange="toggleReInputs()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
+                        <select id="re-holding" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                             <option value="OWN">실거주 (자가 소유 매수)</option>
                             <option value="TENANT_LEASE">전세 거주 (세입자 임차)</option>
                             <option value="LEASE">갭투자 / 전세 끼고 매수 (집주인)</option>
@@ -375,6 +379,7 @@
             const rentWrapper = document.getElementById('re-rent-wrapper');
             const targetWrapper = document.getElementById('re-target-wrapper');
             const holdingSelect = document.getElementById('re-holding');
+            const typeSelect = document.getElementById('re-type');
 
             if (isWatchlist) {
                 purWrapper.classList.add('hidden');
@@ -384,8 +389,10 @@
                 rentWrapper.classList.add('hidden');
                 targetWrapper.classList.remove('hidden');
                 holdingSelect.disabled = true;
+                typeSelect.disabled = true;
             } else {
                 holdingSelect.disabled = false;
+                typeSelect.disabled = false;
                 purWrapper.classList.remove('hidden');
                 currWrapper.classList.remove('hidden');
                 depositWrapper.classList.remove('hidden');
@@ -427,6 +434,9 @@
             }
         }
 
+        // ==========================================
+        // [SCRIPT 1] 주식 엔진 파트 (Supabase 완치 상태 보존)
+        // ==========================================
         function setMarket(market) {
             currentMarket = market;
             const krBtn = document.getElementById('market-kr-btn');
@@ -458,28 +468,14 @@
                     dropdown.innerHTML = '<div class="p-3 text-xs text-slate-400 text-center">검색 결과가 없습니다.</div>';
                     dropdown.classList.remove('hidden'); return;
                 }
-                
-                dropdown.innerHTML = items.map(item => {
-                    // 💡 [최종 처방] 클로드 백엔드 엔진이 뒤집어놓은 symbol과 name의 인덱스 거꾸로 현상을 정밀 가드 방어
-                    let symbol = item.symbol || item.code || '';
-                    let name = item.name || '';
-                    
-                    // 한국 시장(KR)일 때 한글 종목명이 티커 자리에 들어가 있다면 두 변수의 위치를 스왑(Swap)합니다.
-                    if (currentMarket === 'KR' && isNaN(symbol) && !isNaN(name)) {
-                        const temp = symbol;
-                        symbol = name;
-                        name = temp;
-                    }
-                    
-                    return `
-                        <div onclick="selectStock('${symbol}', '${name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition">
-                            <span class="font-medium text-slate-800 whitespace-nowrap">${name}</span>
-                            <span class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500">${symbol}</span>
-                        </div>
-                    `;
-                }).join('');
+                dropdown.innerHTML = items.map(item => `
+                    <div onclick="selectStock('${item.symbol}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition">
+                        <span class="font-medium text-slate-800 whitespace-nowrap">${item.name}</span>
+                        <span class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500">${item.symbol}</span>
+                    </div>
+                `).join('');
                 dropdown.classList.remove('hidden');
-            } catch (e) { console.error("종목 검색 에러", e); }
+            } catch (e) { console.error("검색 실패", e); }
         }
 
         function selectStock(symbol, name) {
@@ -544,30 +540,6 @@
             } catch (e) {}
         }
 
-        function renderProfitLabel(labelId, wrapperId, profit) {
-            const label = document.getElementById(labelId);
-            const wrapper = document.getElementById(wrapperId);
-            const sign = profit > 0 ? '+' : '';
-            label.innerText = `${sign}${profit}%`;
-            if (profit > 0) wrapper.className = "mt-2 text-sm text-rose-600 font-semibold";
-            else if (profit < 0) wrapper.className = "mt-2 text-sm text-blue-600 font-semibold";
-            else wrapper.className = "mt-2 text-sm text-slate-500";
-        }
-
-        function switchTableTab(tab) {
-            currentTableTab = tab;
-            const krBtn = document.getElementById('tab-kr-btn');
-            const usBtn = document.getElementById('tab-us-btn');
-            if (tab === 'KR') {
-                krBtn.className = "px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition";
-                usBtn.className = "px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition";
-            } else {
-                usBtn.className = "px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition";
-                krBtn.className = "px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition";
-            }
-            renderPortfolioTable();
-        }
-
         function renderPortfolioTable() {
             if (!globalPortfolioData) return;
             const tableBody = document.getElementById('portfolio-table-body');
@@ -609,6 +581,40 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // ==========================================
+        // [SCRIPT 2] 부동산 엔진 파트 (네이버 단지 검색 적용 버전)
+        // ==========================================
+        async function searchRealEstate() {
+            const query = document.getElementById('re-name').value.trim();
+            const dropdown = document.getElementById('re-search-dropdown');
+            if (!query) { dropdown.classList.add('hidden'); return; }
+
+            try {
+                const response = await fetch(`/api/real-estate/search?query=${encodeURIComponent(query)}`);
+                const items = await response.json();
+                if (!items || items.length === 0) {
+                    dropdown.innerHTML = '<div class="p-3 text-xs text-slate-400 text-center">검색 결과 단지가 없습니다.</div>';
+                    dropdown.classList.remove('hidden'); return;
+                }
+                dropdown.innerHTML = items.map(item => `
+                    <div onclick="selectRealEstate('${item.complexNo}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition">
+                        <span class="font-medium text-slate-800 whitespace-nowrap">${item.name}</span>
+                        <span class="text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded text-indigo-500">코드:${item.complexNo}</span>
+                    </div>
+                `).join('');
+                dropdown.classList.remove('hidden');
+            } catch (e) { console.error("부동산 검색 실패", e); }
+        }
+
+        function selectRealEstate(complexNo, name) {
+            // 💡 괄호 안에 들어가 있던 행정구역 주소를 파싱하고 깔끔한 단지명만 폼에 꽂아 넣습니다.
+            const cleanName = name.split(' (')[0];
+            document.getElementById('re-name').value = cleanName;
+            document.getElementById('re-search-dropdown').classList.add('hidden');
+            // 향후 확장용으로 단지 번호 캐싱 보관 가능
+            document.getElementById('re-name').dataset.complexNo = complexNo;
         }
 
         async function fetchRealEstateData() {
