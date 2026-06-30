@@ -331,7 +331,8 @@ def save_real_estate():
 @api_blueprint.route("/real-estate/search", methods=["GET"])
 def search_real_estate():
     query = request.args.get("query", "").strip()
-    if not query: return jsonify([])
+    if not query:
+        return jsonify([])
     try:
         url = f"https://completion.land.naver.com/ac?q={requests.utils.quote(query)}&re=1&vt=2"
         headers = {
@@ -340,24 +341,24 @@ def search_real_estate():
             "Accept": "application/json"
         }
         res = requests.get(url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            raw = res.json()
-            items_group = raw.get("items", [])
-            output = []
-            if items_group and len(items_group) > 0:
-                for item in items_group[0][:10]:
-                    # 💡 [정밀 저격] item[0]=단지명, item[1]=유형, item[2]=진짜 단지코드, item[3]=주소
-                    if len(item) > 2:
-                        complex_no = str(item[2]) # 👈 인덱스를 1에서 2로 정밀 수정!
-                        name = str(item[0])
-                        address = str(item[3]) if len(item) > 3 and item[3] else ""
-                        
-                        output.append({
-                            "complexNo": complex_no,
-                            "name": f"{name} ({address})" if address else name
-                        })
-            return jsonify(output)
-        return jsonify([])
+
+        # ✅ 디버깅 - 실제 응답 구조를 그대로 찍는다
+        print(f"[RE-SEARCH DEBUG] status={res.status_code}")
+        print(f"[RE-SEARCH DEBUG] raw={res.text[:1000]}")
+
+        if res.status_code != 200:
+            return jsonify([])
+
+        raw = res.json()
+        items_group = raw.get("items", [])
+        output = []
+
+        if items_group and len(items_group) > 0:
+            for item in items_group[0][:10]:
+                print(f"[RE-SEARCH DEBUG] item={item}")  # ✅ 각 item의 실제 구조 출력
+                output.append({"raw_item": item})  # 일단 원본 그대로 반환해서 확인
+
+        return jsonify(output)
     except Exception as e:
         print(f"❌ 부동산 검색 엔드포인트 예외: {str(e)}")
         return jsonify([])
