@@ -29,19 +29,16 @@ def get_supabase():
     except Exception:
         return None
 
-def get_molit_recent_price(bjd_code: str, apt_name: str) -> float | None:
-    """국토부 실거래가 API로 해당 단지의 최근 거래가 조회 (단위: 원)"""
+def get_molit_recent_price(bjd_code: str, apt_name: str):
     from datetime import datetime, timedelta
 
     SERVICE_KEY = os.getenv("MOLIT_API_KEY", "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba")
     BASE_URL = "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
 
-    # bjd_code 앞 5자리가 법정동 시군구 코드 (LAWD_CD)
     lawd_cd = bjd_code[:5] if bjd_code and len(bjd_code) >= 5 else None
     if not lawd_cd:
         return None
 
-    # 최근 3개월 순서로 조회 (거래 없으면 한 달씩 앞으로)
     now = datetime.now()
     months_to_try = [
         (now - timedelta(days=30 * i)).strftime("%Y%m")
@@ -59,14 +56,19 @@ def get_molit_recent_price(bjd_code: str, apt_name: str) -> float | None:
                 "_type": "json"
             }
             res = requests.get(BASE_URL, params=params, timeout=10)
+
+            print(f"[MOLIT DEBUG] {apt_name} {deal_ymd} → HTTP {res.status_code}")
+
             if res.status_code != 200:
                 continue
 
             data = res.json()
             body = data.get("response", {}).get("body", {})
+            total_count = body.get("totalCount", 0)
             items = body.get("items", {})
 
-            # items가 빈 문자열로 오는 경우 처리
+            print(f"[MOLIT DEBUG] {apt_name} {deal_ymd} → totalCount={total_count}, items_type={type(items).__name__}, items_preview={str(items)[:300]}")
+
             if not items or items == "":
                 continue
 
@@ -76,28 +78,15 @@ def get_molit_recent_price(bjd_code: str, apt_name: str) -> float | None:
             if not item_list:
                 continue
 
-            if res.status_code != 200:
-                continue
-
-            data = res.json()
-            body = data.get("response", {}).get("body", {})
-            items = body.get("items", {})
-            
-            # ✅ 추가
-            print(f"[MOLIT DEBUG] {apt_name} {deal_ymd} → status={res.status_code}, totalCount={body.get('totalCount')}, items_type={type(items).__name__}, items={str(items)[:200]}")
-
-            if not items or items == "":
-                continue
-
-            # 단지명으로 필터링 (공백 제거 후 포함 여부 체크)
             clean_apt_name = apt_name.replace(" ", "")
             matched = []
             for item in item_list:
                 item_apt = str(item.get("aptNm", "")).replace(" ", "")
+                print(f"[MOLIT DEBUG] 비교: '{clean_apt_name}' vs '{item_apt}'")
                 if clean_apt_name in item_apt or item_apt in clean_apt_name:
                     try:
                         price_str = str(item.get("dealAmount", "0")).replace(",", "")
-                        price = int(price_str) * 10000  # 만원 → 원
+                        price = int(price_str) * 10000
                         deal_year = str(item.get("dealYear", ""))
                         deal_month = str(item.get("dealMonth", "")).zfill(2)
                         deal_day = str(item.get("dealDay", "")).zfill(2)
@@ -109,14 +98,11 @@ def get_molit_recent_price(bjd_code: str, apt_name: str) -> float | None:
                         continue
 
             if matched:
-                # 가장 최근 거래 기준 정렬 후 최고가 반환
                 matched.sort(key=lambda x: x["date"], reverse=True)
                 print(f"[MOLIT] {apt_name} → {deal_ymd} 최근거래가: {matched[0]['price']:,}원")
                 return matched[0]["price"]
-            
             else:
-    # ✅ 이 줄 추가 - 매칭 안 된 단지명들 출력
-                print(f"[MOLIT DEBUG] {apt_name} {deal_ymd} → 해당 법정동 거래단지목록: {[item.get('aptNm') for item in item_list[:10]]}")
+                print(f"[MOLIT DEBUG] {apt_name} {deal_ymd} → 매칭 실패. 법정동 내 단지목록: {[i.get('aptNm') for i in item_list[:10]]}")
 
         except Exception as e:
             print(f"[MOLIT Error] {apt_name} {deal_ymd}: {e}")
