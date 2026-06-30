@@ -29,47 +29,84 @@ def get_supabase():
     except Exception:
         return None
 
-def get_naver_real_estate_live_price(keyword):
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Referer": "https://fin.land.naver.com/",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "ko-KR,ko;q=0.9",
-            "Origin": "https://fin.land.naver.com",
-        }
+def get_molit_recent_price(bjd_code: str, apt_name: str) -> float | None:
+    """국토부 실거래가 API로 해당 단지의 최근 거래가 조회 (단위: 원)"""
+    from datetime import datetime, timedelta
 
-        search_url = f"https://fin.land.naver.com/front-api/v1/search/autocomplete/complexes?keyword={requests.utils.quote(keyword)}&size=5&page=0"
-        res = requests.get(search_url, headers=headers, timeout=10)   # ← 5 → 10
-        if res.status_code != 200:
-            return None
+    SERVICE_KEY = os.getenv("MOLIT_API_KEY", "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba")
+    BASE_URL = "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
 
-        data = res.json()
-        items = data.get("result", {}).get("list", [])
-        if not items:
-            return None
-
-        complex_no = items[0].get("complexNumber")
-        if not complex_no:
-            return None
-
-        # 2단계: 단지 매물 리스트 조회 (기존 m.land.naver.com 엔드포인트는 살아있는지 별도 확인 필요)
-        articles_url = f"https://m.land.naver.com/complex/getComplexArticleList?hscpNo={complex_no}&tradTpCd=A1&order=prc"
-        res2 = requests.get(articles_url, headers={**headers, "Referer": "https://m.land.naver.com/"}, timeout=5)
-        if res2.status_code != 200:
-            return None
-
-        article_data = res2.json()
-        article_list = article_data.get("result", {}).get("list", [])
-        if not article_list:
-            return None
-
-        prc_raw = article_list[0].get("prc", 0)
-        return int(prc_raw) * 10000
-
-    except Exception as e:
-        print(f"[Naver Crawler Error] {keyword}: {e}")
+    # bjd_code 앞 5자리가 법정동 시군구 코드 (LAWD_CD)
+    lawd_cd = bjd_code[:5] if bjd_code and len(bjd_code) >= 5 else None
+    if not lawd_cd:
         return None
+
+    # 최근 3개월 순서로 조회 (거래 없으면 한 달씩 앞으로)
+    now = datetime.now()
+    months_to_try = [
+        (now - timedelta(days=30 * i)).strftime("%Y%m")
+        for i in range(0, 4)
+    ]
+
+    for deal_ymd in months_to_try:
+        try:
+            params = {
+                "serviceKey": SERVICE_KEY,
+                "LAWD_CD": lawd_cd,
+                "DEAL_YMD": deal_ymd,
+                "pageNo": 1,
+                "numOfRows": 100,
+                "_type": "json"
+            }
+            res = requests.get(BASE_URL, params=params, timeout=10)
+            if res.status_code != 200:
+                continue
+
+            data = res.json()
+            body = data.get("response", {}).get("body", {})
+            items = body.get("items", {})
+
+            # items가 빈 문자열로 오는 경우 처리
+            if not items or items == "":
+                continue
+
+            item_list = items.get("item", [])
+            if isinstance(item_list, dict):
+                item_list = [item_list]
+            if not item_list:
+                continue
+
+            # 단지명으로 필터링 (공백 제거 후 포함 여부 체크)
+            clean_apt_name = apt_name.replace(" ", "")
+            matched = []
+            for item in item_list:
+                item_apt = str(item.get("aptNm", "")).replace(" ", "")
+                if clean_apt_name in item_apt or item_apt in clean_apt_name:
+                    try:
+                        price_str = str(item.get("dealAmount", "0")).replace(",", "")
+                        price = int(price_str) * 10000  # 만원 → 원
+                        deal_year = str(item.get("dealYear", ""))
+                        deal_month = str(item.get("dealMonth", "")).zfill(2)
+                        deal_day = str(item.get("dealDay", "")).zfill(2)
+                        matched.append({
+                            "price": price,
+                            "date": f"{deal_year}{deal_month}{deal_day}"
+                        })
+                    except Exception:
+                        continue
+
+            if matched:
+                # 가장 최근 거래 기준 정렬 후 최고가 반환
+                matched.sort(key=lambda x: x["date"], reverse=True)
+                print(f"[MOLIT] {apt_name} → {deal_ymd} 최근거래가: {matched[0]['price']:,}원")
+                return matched[0]["price"]
+
+        except Exception as e:
+            print(f"[MOLIT Error] {apt_name} {deal_ymd}: {e}")
+            continue
+
+    print(f"[MOLIT] {apt_name}: 최근 4개월 내 거래 데이터 없음")
+    return None
 
 # ==========================================
 # [CORE 1] 주식 엔진 파이프라인 (보존)
@@ -247,12 +284,15 @@ def get_real_estate():
 
             # 💡 [핵심 엔진] 만약 관심 부동산 그룹이라면 네이버 실시간 매물 최저가를 즉시 크롤링해서 동기화합니다.
             if is_watch:
-                live_price = get_naver_real_estate_live_price(name)
-                if live_price:
-                    c_price = live_price # 실매물가로 런타임 강제 치환
-                    # 백엔드 DB에도 동적 캐싱 업데이트 실행
-                    supabase.table("real_estate_portfolio").update({"current_price": live_price}).eq("name", name).execute()
-
+                bjd_code = item.get("bjd_code", "") or ""
+                if bjd_code:
+                    live_price = get_molit_recent_price(bjd_code, name)
+                    if live_price:
+                        c_price = live_price
+                        supabase.table("real_estate_portfolio").update({"current_price": live_price}).eq("id", item.get("id")).execute()
+                else:
+                    print(f"[MOLIT] {name}: bjd_code 없음, 시세 조회 스킵")
+        
             if h_type == "TENANT_LEASE":
                 computed_eval = 0 
                 computed_debt = debt
