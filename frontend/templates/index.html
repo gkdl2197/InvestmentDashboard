@@ -459,11 +459,17 @@
                     dropdown.classList.remove('hidden'); return;
                 }
                 
-                // 💡 [정밀 교정] 한국 시장(Naver 주소)과 미국 시장(Finnhub)의 데이터 구조 규격을 통합 파싱합니다.
                 dropdown.innerHTML = items.map(item => {
-                    // 네이버 새 규격(Symbol/Name) 혹은 핀허브 규격 분기 방어
-                    const symbol = item.symbol || item.code || '';
-                    const name = item.name || '';
+                    // 💡 [최종 처방] 클로드 백엔드 엔진이 뒤집어놓은 symbol과 name의 인덱스 거꾸로 현상을 정밀 가드 방어
+                    let symbol = item.symbol || item.code || '';
+                    let name = item.name || '';
+                    
+                    // 한국 시장(KR)일 때 한글 종목명이 티커 자리에 들어가 있다면 두 변수의 위치를 스왑(Swap)합니다.
+                    if (currentMarket === 'KR' && isNaN(symbol) && !isNaN(name)) {
+                        const temp = symbol;
+                        symbol = name;
+                        name = temp;
+                    }
                     
                     return `
                         <div onclick="selectStock('${symbol}', '${name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition">
