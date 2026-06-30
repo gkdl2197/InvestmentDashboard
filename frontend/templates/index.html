@@ -611,12 +611,12 @@
                     dropdown.classList.remove('hidden'); return;
                 }
                 
-                dropdown.innerHTML = items.map(item => `
-                    <div onclick="selectRealEstate('${item.complexNo}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition duration-150">
-                        <span class="font-medium text-slate-800 whitespace-nowrap">${item.name}</span>
-                        <span class="text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded text-indigo-500 font-bold">코드:${item.complexNo}</span>
-                    </div>
-                `).join('');
+                dropdown.innerHTML = items.map(function(item) {
+    return '<div onclick="selectRealEstate(\'' + item.complexNo + '\', \'' + item.name + '\', \'' + item.bjdCode + '\', \'' + item.rawName + '\')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition duration-150">' +
+        '<span class="font-medium text-slate-800 whitespace-nowrap">' + item.name + '</span>' +
+        '<span class="text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded text-indigo-500 font-bold">코드:' + item.complexNo + '</span>' +
+    '</div>';
+}).join('');
                 dropdown.classList.remove('hidden');
             } catch (e) { console.error("부동산 검색 파이프라인 에러", e); }
         }
