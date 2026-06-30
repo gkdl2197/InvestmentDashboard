@@ -458,12 +458,20 @@
                     dropdown.innerHTML = '<div class="p-3 text-xs text-slate-400 text-center">검색 결과가 없습니다.</div>';
                     dropdown.classList.remove('hidden'); return;
                 }
-                dropdown.innerHTML = items.map(item => `
-                    <div onclick="selectStock('${item.symbol}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition">
-                        <span class="font-medium text-slate-800 whitespace-nowrap">${item.name}</span>
-                        <span class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500">${item.symbol}</span>
-                    </div>
-                `).join('');
+                
+                // 💡 [정밀 교정] 한국 시장(Naver 주소)과 미국 시장(Finnhub)의 데이터 구조 규격을 통합 파싱합니다.
+                dropdown.innerHTML = items.map(item => {
+                    // 네이버 새 규격(Symbol/Name) 혹은 핀허브 규격 분기 방어
+                    const symbol = item.symbol || item.code || '';
+                    const name = item.name || '';
+                    
+                    return `
+                        <div onclick="selectStock('${symbol}', '${name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition">
+                            <span class="font-medium text-slate-800 whitespace-nowrap">${name}</span>
+                            <span class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-500">${symbol}</span>
+                        </div>
+                    `;
+                }).join('');
                 dropdown.classList.remove('hidden');
             } catch (e) { console.error("종목 검색 에러", e); }
         }
