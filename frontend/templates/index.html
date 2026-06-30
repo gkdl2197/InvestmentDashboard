@@ -597,23 +597,28 @@
         async function searchRealEstate() {
             const query = document.getElementById('re-name').value.trim();
             const dropdown = document.getElementById('re-search-dropdown');
-            if (!query) { dropdown.classList.add('hidden'); return; }
+            if (!query) { if(dropdown) dropdown.classList.add('hidden'); return; }
 
             try {
                 const response = await fetch(`/api/real-estate/search?query=${encodeURIComponent(query)}`);
                 const items = await response.json();
+                
+                // 엘리먼트 존재 여부 안전 가드 추가
+                if (!dropdown) { console.error("re-search-dropdown 엘리먼트가 마크업에 없습니다."); return; }
+                
                 if (!items || items.length === 0) {
                     dropdown.innerHTML = '<div class="p-3 text-xs text-slate-400 text-center">검색 결과 단지가 없습니다.</div>';
                     dropdown.classList.remove('hidden'); return;
                 }
+                
                 dropdown.innerHTML = items.map(item => `
-                    <div onclick="selectRealEstate('${item.complexNo}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50/80 cursor-pointer flex justify-between items-center transition">
+                    <div onclick="selectRealEstate('${item.complexNo}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition duration-150">
                         <span class="font-medium text-slate-800 whitespace-nowrap">${item.name}</span>
-                        <span class="text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded text-indigo-500">코드:${item.complexNo}</span>
+                        <span class="text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded text-indigo-500 font-bold">코드:${item.complexNo}</span>
                     </div>
                 `).join('');
                 dropdown.classList.remove('hidden');
-            } catch (e) { console.error("부동산 검색 실패", e); }
+            } catch (e) { console.error("부동산 검색 파이프라인 에러", e); }
         }
 
         function selectRealEstate(complexNo, name) {

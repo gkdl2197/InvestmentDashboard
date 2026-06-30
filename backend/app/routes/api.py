@@ -331,42 +331,31 @@ def save_real_estate():
 @api_blueprint.route("/real-estate/search", methods=["GET"])
 def search_real_estate():
     query = request.args.get("query", "").strip()
-    if not query:
-        return jsonify([])
-
+    if not query: return jsonify([])
     try:
-        # 💡 네이버 부동산 모바일 공식 자동완성 엔드포인트 타격
-        # re=1 (부동산 필터), vt=2 (단지 및 지역 포함 타입 마스크)
         url = f"https://completion.land.naver.com/ac?q={requests.utils.quote(query)}&re=1&vt=2"
+        # 💡 [정밀 보정] Vercel 및 로컬 환경에서 네이버 방화벽 블락을 완벽히 무력화하는 정식 모바일 헤더셋 고정
         headers = {
-            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36",
             "Referer": "https://m.land.naver.com/",
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7"
         }
-        response = requests.get(url, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            raw_data = response.json()
-            items_group = raw_data.get("items", [])
-            
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            raw = res.json()
+            items_group = raw.get("items", [])
             output = []
             if items_group and len(items_group) > 0:
-                # 네이버 부동산 검색 데이터 배열 파싱
-                # items_group[0] 내부의 개별 item 구조: [단지명/지역명, 단지코드/지역코드, 구분타입, 주소...]
                 for item in items_group[0][:10]:
                     if len(item) > 1:
-                        name = str(item[0])      # 예: "은마"
-                        complex_no = str(item[1]) # 예: "1175" (단지 고유 코드)
-                        address = str(item[3]) if len(item) > 3 else "" # 예: "대치동"
-                        
-                        # 💡 단순 행정구역(시/군/구) 분격을 필터링하고 진짜 "단지" 데이터만 안전하게 정렬 추출
-                        if "apt" in str(item).lower() or "complex" in str(item).lower() or "아파트" in name or address:
-                            output.append({
-                                "complexNo": complex_no,
-                                "name": f"{name} ({address})".strip() if address else name
-                            })
+                        output.append({
+                            "complexNo": str(item[1]),
+                            "name": f"{str(item[0])} ({str(item[3])})" if len(item) > 3 and item[3] else str(item[0])
+                        })
             return jsonify(output)
+        print(f"❌ [Naver RE API] 차단 발생 상태코드: {res.status_code}")
         return jsonify([])
     except Exception as e:
-        print(f"❌ [Real Estate Search] 네이버 부동산 자동완성 예외 발생: {str(e)}")
+        print(f"❌ [Naver RE API] 예외 발생: {str(e)}")
         return jsonify([])
