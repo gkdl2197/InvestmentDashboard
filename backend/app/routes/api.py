@@ -297,15 +297,16 @@ def save_real_estate():
 
         name = data.get("name")
         payload = {
-            "name": name, "estate_type": data.get("estate_type"),
-            "holding_type": "WATCHLIST" if bool(data.get("is_watchlist")) else data.get("holding_type", "OWN"),
-            "purchase_price": float(data.get("purchase_price") or 0),
-            "current_price": float(data.get("current_price") or 0),
-            "debt": float(data.get("debt") or 0),
-            "monthly_rent": float(data.get("monthly_rent") or 0),
-            "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
-            "target_price": float(data.get("target_price") or 0) 
-        }
+    "name": name, "estate_type": data.get("estate_type"),
+    "holding_type": "WATCHLIST" if bool(data.get("is_watchlist")) else data.get("holding_type", "OWN"),
+    "purchase_price": float(data.get("purchase_price") or 0),
+    "current_price": float(data.get("current_price") or 0),
+    "debt": float(data.get("debt") or 0),
+    "monthly_rent": float(data.get("monthly_rent") or 0),
+    "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
+    "target_price": float(data.get("target_price") or 0),
+    "bjd_code": data.get("bjd_code", "")
+}
 
         existing = supabase.table("real_estate_portfolio").select("id").eq("name", name).execute()
         if existing.data and len(existing.data) > 0:
