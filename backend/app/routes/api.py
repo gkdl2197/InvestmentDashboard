@@ -324,12 +324,11 @@ def search_real_estate():
     
     supabase = get_supabase()
     if not supabase:
-        print("❌ [RE-SEARCH] Supabase 클라이언트 초기화 실패")
         return jsonify([])
 
     try:
         res = supabase.table("real_estate_complexes")\
-            .select("complex_code, complex_name, sido, sigungu, dong")\
+            .select("complex_code, complex_name, sido, sigungu, dong, bjd_code")\
             .ilike("complex_name", f"%{query}%")\
             .limit(15)\
             .execute()
@@ -345,7 +344,9 @@ def search_real_estate():
 
                 output.append({
                     "complexNo": item.get("complex_code", ""),
-                    "name": f"{name} ({region})" if region else name
+                    "name": f"{name} ({region})" if region else name,
+                    "rawName": name,
+                    "bjdCode": item.get("bjd_code", "")
                 })
 
         return jsonify(output)

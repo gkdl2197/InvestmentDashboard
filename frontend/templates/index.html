@@ -621,12 +621,13 @@
             } catch (e) { console.error("부동산 검색 파이프라인 에러", e); }
         }
 
-        function selectRealEstate(complexNo, name) {
-            const cleanName = name.split(' (')[0];
-            document.getElementById('re-name').value = cleanName;
-            document.getElementById('re-search-dropdown').classList.add('hidden');
-            document.getElementById('re-name').dataset.complexNo = complexNo;
-        }
+       function selectRealEstate(complexNo, name, bjdCode, rawName) {
+    const cleanName = rawName && rawName.length > 0 ? rawName : name.split(' (')[0];
+    document.getElementById('re-name').value = cleanName;
+    document.getElementById('re-search-dropdown').classList.add('hidden');
+    document.getElementById('re-name').dataset.complexNo = complexNo;
+    document.getElementById('re-name').dataset.bjdCode = bjdCode;
+}
 
         async function fetchRealEstateData() {
             try {
@@ -664,52 +665,60 @@
         }
 
         async function submitRealEstate() {
-            const name = document.getElementById('re-name').value.trim();
-            const complex_type = document.getElementById('re-type').value;
-            const holding_type = document.getElementById('re-holding').value;
-            const is_watchlist = document.getElementById('re-is-watchlist').checked;
-            
-            if (!name) { alert("매물 또는 아파트 명칭을 입력해 주십시오."); return; }
+    const name = document.getElementById('re-name').value.trim();
+    const bjdCode = document.getElementById('re-name').dataset.bjdCode || '';
+    const complex_type = document.getElementById('re-type').value;
+    const holding_type = document.getElementById('re-holding').value;
+    const is_watchlist = document.getElementById('re-is-watchlist').checked;
 
-            const target_price = is_watchlist ? parseFloat(document.getElementById('re-target-price').value) || 0 : 0;
-            let deposit = parseFloat(document.getElementById('re-deposit').value) || 0;
-            let purchase_price = parseFloat(document.getElementById('re-pur-price').value) || 0;
-            let current_price = parseFloat(document.getElementById('re-curr-price').value) || 0;
-            const debt = parseFloat(document.getElementById('re-debt').value) || 0;
-            const monthly_rent = parseFloat(document.getElementById('re-rent').value) || 0;
+    if (!name) { alert("매물 또는 아파트 명칭을 입력해 주십시오."); return; }
 
-            let target_rent_field = monthly_rent;
-            if (holding_type === 'TENANT_LEASE' && !is_watchlist) {
-                purchase_price = 0; current_price = 0; target_rent_field = deposit;
-            } else if (holding_type === 'LEASE' && !is_watchlist) {
-                target_rent_field = deposit;
-            }
+    const target_price = is_watchlist ? parseFloat(document.getElementById('re-target-price').value) || 0 : 0;
+    let deposit = parseFloat(document.getElementById('re-deposit').value) || 0;
+    let purchase_price = parseFloat(document.getElementById('re-pur-price').value) || 0;
+    let current_price = parseFloat(document.getElementById('re-curr-price').value) || 0;
+    const debt = parseFloat(document.getElementById('re-debt').value) || 0;
+    const monthly_rent = parseFloat(document.getElementById('re-rent').value) || 0;
 
-            try {
-                const res = await fetch('/api/real-estate/save', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name, estate_type: complex_type, holding_type: is_watchlist ? 'OWN' : holding_type,
-                        purchase_price, current_price, debt, monthly_rent: target_rent_field,
-                        is_watchlist: is_watchlist, target_price
-                    })
-                });
-                if ((await res.json()).status === 'success') {
-                    alert("성공적으로 등록되었습니다.");
-                    document.getElementById('re-name').value = '';
-                    document.getElementById('re-pur-price').value = '';
-                    document.getElementById('re-curr-price').value = '';
-                    document.getElementById('re-debt').value = '';
-                    document.getElementById('re-deposit').value = '';
-                    document.getElementById('re-rent').value = '';
-                    document.getElementById('re-is-watchlist').checked = false;
-                    if(document.getElementById('re-target-price')) document.getElementById('re-target-price').value = '';
-                    toggleWatchlistInputs();
-                    fetchRealEstateData();
-                }
-            } catch (e) { alert("저장 실패"); }
+    let target_rent_field = monthly_rent;
+    if (holding_type === 'TENANT_LEASE' && !is_watchlist) {
+        purchase_price = 0; current_price = 0; target_rent_field = deposit;
+    } else if (holding_type === 'LEASE' && !is_watchlist) {
+        target_rent_field = deposit;
+    }
+
+    try {
+        const res = await fetch('/api/real-estate/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                estate_type: complex_type,
+                holding_type: is_watchlist ? 'OWN' : holding_type,
+                purchase_price: purchase_price,
+                current_price: current_price,
+                debt: debt,
+                monthly_rent: target_rent_field,
+                is_watchlist: is_watchlist,
+                target_price: target_price,
+                bjd_code: bjdCode
+            })
+        });
+        if ((await res.json()).status === 'success') {
+            alert("성공적으로 등록되었습니다.");
+            document.getElementById('re-name').value = '';
+            document.getElementById('re-pur-price').value = '';
+            document.getElementById('re-curr-price').value = '';
+            document.getElementById('re-debt').value = '';
+            document.getElementById('re-deposit').value = '';
+            document.getElementById('re-rent').value = '';
+            document.getElementById('re-is-watchlist').checked = false;
+            if (document.getElementById('re-target-price')) document.getElementById('re-target-price').value = '';
+            toggleWatchlistInputs();
+            fetchRealEstateData();
         }
+    } catch (e) { alert("저장 실패"); }
+}
 
         async function deleteRealEstate(id) {
             if (!confirm("해당 부동산 내역을 삭제하시겠습니까?")) return;
