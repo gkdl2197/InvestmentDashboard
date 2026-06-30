@@ -539,7 +539,7 @@
             } catch (e) {}
         }
 
-        function renderPortfolioTable() {
+      function renderPortfolioTable() {
             if (!globalPortfolioData) return;
             const tableBody = document.getElementById('portfolio-table-body');
             const stocks = globalPortfolioData.portfolio[currentTableTab] || [];
@@ -582,9 +582,6 @@
             }).join('');
         }
 
-        // ==========================================
-        // [SCRIPT 2] 부동산 엔진 파트
-        // ==========================================
         async function searchRealEstate() {
             const query = document.getElementById('re-name').value.trim();
             const dropdown = document.getElementById('re-search-dropdown');
