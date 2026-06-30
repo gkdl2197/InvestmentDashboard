@@ -100,6 +100,10 @@ def get_molit_recent_price(bjd_code: str, apt_name: str) -> float | None:
                 matched.sort(key=lambda x: x["date"], reverse=True)
                 print(f"[MOLIT] {apt_name} → {deal_ymd} 최근거래가: {matched[0]['price']:,}원")
                 return matched[0]["price"]
+            
+            else:
+    # ✅ 이 줄 추가 - 매칭 안 된 단지명들 출력
+                print(f"[MOLIT DEBUG] {apt_name} {deal_ymd} → 해당 법정동 거래단지목록: {[item.get('aptNm') for item in item_list[:10]]}")
 
         except Exception as e:
             print(f"[MOLIT Error] {apt_name} {deal_ymd}: {e}")
