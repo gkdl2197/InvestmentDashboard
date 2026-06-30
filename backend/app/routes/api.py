@@ -29,53 +29,43 @@ def get_supabase():
     except Exception:
         return None
 
-# 네이버 실매물 가격 트래킹 내부 헬퍼 함수
 def get_naver_real_estate_live_price(keyword):
-    """네이버 부동산 단지 검색 후 중개업소 실매물 최저가 반환 (단위: 원)"""
+    """단지명으로 검색 → complexNumber 획득 → 매물 최저가 조회"""
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
-            "Referer": "https://m.land.naver.com/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+            "Referer": "https://fin.land.naver.com/",
             "Accept": "application/json"
         }
 
-        # ✅ 1단계: 자동완성 API로 단지 코드 획득
-        search_url = f"https://completion.land.naver.com/ac?q={requests.utils.quote(keyword)}&re=1&vt=2"
+        # 1단계: 단지명으로 complexNumber 검색
+        search_url = f"https://fin.land.naver.com/front-api/v1/search/autocomplete/complexes?keyword={requests.utils.quote(keyword)}&size=5&page=0"
         res = requests.get(search_url, headers=headers, timeout=5)
-
         if res.status_code != 200:
             return None
 
         data = res.json()
-        items = data.get("items", [[]])[0]  # 첫 번째 결과 그룹
+        items = data.get("result", {}).get("list", [])
         if not items:
             return None
 
-        # items[0] 구조: [단지명, 단지코드, 타입, ...]
-        bldg_id = items[0][1] if len(items[0]) > 1 else None
-        if not bldg_id:
+        complex_no = items[0].get("complexNumber")
+        if not complex_no:
             return None
 
-        # ✅ 2단계: 단지 매물 리스트 조회 (최저가 정렬)
-        articles_url = (
-            f"https://m.land.naver.com/article/articleList"
-            f"?rletTypeCd=A01&tradTpCd=A1&complexNo={bldg_id}&order=prc&page=1"
-        )
-        res2 = requests.get(articles_url, headers=headers, timeout=5)
-
+        # 2단계: 단지 매물 리스트 조회 (기존 m.land.naver.com 엔드포인트는 살아있는지 별도 확인 필요)
+        articles_url = f"https://m.land.naver.com/complex/getComplexArticleList?hscpNo={complex_no}&tradTpCd=A1&order=prc"
+        res2 = requests.get(articles_url, headers={**headers, "Referer": "https://m.land.naver.com/"}, timeout=5)
         if res2.status_code != 200:
             return None
 
         article_data = res2.json()
         article_list = article_data.get("result", {}).get("list", [])
-
         if not article_list:
             return None
 
-        # ✅ 3단계: 최저가 매물 가격 파싱 (네이버 단위: 만원)
-        first_item = article_list[0]
-        prc_raw = first_item.get("prc", 0)  # 예: 150000 (15억, 만원 단위)
-        return int(prc_raw) * 10000  # 원화 변환
+        prc_raw = article_list[0].get("prc", 0)
+        return int(prc_raw) * 10000
 
     except Exception as e:
         print(f"[Naver Crawler Error] {keyword}: {e}")
@@ -334,31 +324,37 @@ def search_real_estate():
     if not query:
         return jsonify([])
     try:
-        url = f"https://completion.land.naver.com/ac?q={requests.utils.quote(query)}&re=1&vt=2"
+        url = f"https://fin.land.naver.com/front-api/v1/search/autocomplete/complexes?keyword={requests.utils.quote(query)}&size=10&page=0"
         headers = {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36",
-            "Referer": "https://m.land.naver.com/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+            "Referer": "https://fin.land.naver.com/",
             "Accept": "application/json"
         }
         res = requests.get(url, headers=headers, timeout=5)
 
-        # ✅ 디버깅 - 실제 응답 구조를 그대로 찍는다
-        print(f"[RE-SEARCH DEBUG] status={res.status_code}")
-        print(f"[RE-SEARCH DEBUG] raw={res.text[:1000]}")
-
         if res.status_code != 200:
+            print(f"[RE-SEARCH] HTTP {res.status_code}")
             return jsonify([])
 
-        raw = res.json()
-        items_group = raw.get("items", [])
-        output = []
+        data = res.json()
+        if not data.get("isSuccess"):
+            return jsonify([])
 
-        if items_group and len(items_group) > 0:
-            for item in items_group[0][:10]:
-                print(f"[RE-SEARCH DEBUG] item={item}")  # ✅ 각 item의 실제 구조 출력
-                output.append({"raw_item": item})  # 일단 원본 그대로 반환해서 확인
+        items = data.get("result", {}).get("list", [])
+        output = []
+        for item in items:
+            complex_no = str(item.get("complexNumber", ""))
+            name = item.get("complexName", "")
+            region = item.get("legalDivisionName", "")
+            if not complex_no or not name:
+                continue
+            output.append({
+                "complexNo": complex_no,
+                "name": f"{name} ({region})" if region else name
+            })
 
         return jsonify(output)
+
     except Exception as e:
         print(f"❌ 부동산 검색 엔드포인트 예외: {str(e)}")
         return jsonify([])
