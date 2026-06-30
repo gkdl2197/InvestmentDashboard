@@ -76,6 +76,19 @@ def get_molit_recent_price(bjd_code: str, apt_name: str) -> float | None:
             if not item_list:
                 continue
 
+            if res.status_code != 200:
+                continue
+
+            data = res.json()
+            body = data.get("response", {}).get("body", {})
+            items = body.get("items", {})
+            
+            # ✅ 추가
+            print(f"[MOLIT DEBUG] {apt_name} {deal_ymd} → status={res.status_code}, totalCount={body.get('totalCount')}, items_type={type(items).__name__}, items={str(items)[:200]}")
+
+            if not items or items == "":
+                continue
+
             # 단지명으로 필터링 (공백 제거 후 포함 여부 체크)
             clean_apt_name = apt_name.replace(" ", "")
             matched = []
