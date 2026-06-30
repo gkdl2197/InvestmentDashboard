@@ -30,17 +30,17 @@ def get_supabase():
         return None
 
 def get_naver_real_estate_live_price(keyword):
-    """단지명으로 검색 → complexNumber 획득 → 매물 최저가 조회"""
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Referer": "https://fin.land.naver.com/",
-            "Accept": "application/json"
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "ko-KR,ko;q=0.9",
+            "Origin": "https://fin.land.naver.com",
         }
 
-        # 1단계: 단지명으로 complexNumber 검색
         search_url = f"https://fin.land.naver.com/front-api/v1/search/autocomplete/complexes?keyword={requests.utils.quote(keyword)}&size=5&page=0"
-        res = requests.get(search_url, headers=headers, timeout=5)
+        res = requests.get(search_url, headers=headers, timeout=10)   # ← 5 → 10
         if res.status_code != 200:
             return None
 
@@ -326,11 +326,13 @@ def search_real_estate():
     try:
         url = f"https://fin.land.naver.com/front-api/v1/search/autocomplete/complexes?keyword={requests.utils.quote(query)}&size=10&page=0"
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Referer": "https://fin.land.naver.com/",
-            "Accept": "application/json"
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "ko-KR,ko;q=0.9",
+            "Origin": "https://fin.land.naver.com",
         }
-        res = requests.get(url, headers=headers, timeout=5)
+        res = requests.get(url, headers=headers, timeout=10)   # ← 5 → 10
 
         if res.status_code != 200:
             print(f"[RE-SEARCH] HTTP {res.status_code}")
