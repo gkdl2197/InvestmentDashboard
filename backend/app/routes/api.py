@@ -334,12 +334,10 @@ def search_real_estate():
     if not query: return jsonify([])
     try:
         url = f"https://completion.land.naver.com/ac?q={requests.utils.quote(query)}&re=1&vt=2"
-        # 💡 [정밀 보정] Vercel 및 로컬 환경에서 네이버 방화벽 블락을 완벽히 무력화하는 정식 모바일 헤더셋 고정
         headers = {
             "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36",
             "Referer": "https://m.land.naver.com/",
-            "Accept": "application/json",
-            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7"
+            "Accept": "application/json"
         }
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
@@ -348,14 +346,18 @@ def search_real_estate():
             output = []
             if items_group and len(items_group) > 0:
                 for item in items_group[0][:10]:
-                    if len(item) > 1:
+                    # 💡 [정밀 저격] item[0]=단지명, item[1]=유형, item[2]=진짜 단지코드, item[3]=주소
+                    if len(item) > 2:
+                        complex_no = str(item[2]) # 👈 인덱스를 1에서 2로 정밀 수정!
+                        name = str(item[0])
+                        address = str(item[3]) if len(item) > 3 and item[3] else ""
+                        
                         output.append({
-                            "complexNo": str(item[1]),
-                            "name": f"{str(item[0])} ({str(item[3])})" if len(item) > 3 and item[3] else str(item[0])
+                            "complexNo": complex_no,
+                            "name": f"{name} ({address})" if address else name
                         })
             return jsonify(output)
-        print(f"❌ [Naver RE API] 차단 발생 상태코드: {res.status_code}")
         return jsonify([])
     except Exception as e:
-        print(f"❌ [Naver RE API] 예외 발생: {str(e)}")
+        print(f"❌ 부동산 검색 엔드포인트 예외: {str(e)}")
         return jsonify([])
