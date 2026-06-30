@@ -93,6 +93,7 @@ def search_stock():
         return jsonify([])
 
     try:
+        # 🇺🇸 미국 시장은 기존 Finnhub 연동 파이프라인 유지 (성역)
         if market == "US":
             FINNHUB_KEY = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_KEY")
             url = f"https://finnhub.io/api/v1/search?q={query}&token={FINNHUB_KEY}"
@@ -105,37 +106,35 @@ def search_stock():
                     for i in results[:10] if "." not in i.get("symbol", "")
                 ])
             return jsonify([])
+        
+        # 🇰🇷 한국 시장: 외부 네이버 API 폐기 ➔ 오직 우리가 약속한 Supabase 테이블에서만 추출
         else:
-            # 💡 [정밀 수술] 부동산 주소 폐기 -> 실제 네이버 주식 검색 공식 백본망 API로 교체
-            url = f"https://ac.stock.naver.com/ac?q={requests.utils.quote(query)}&target=stock"
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Accept": "application/json"
-            }
-            response = requests.get(url, headers=headers, timeout=5)
-            if response.status_code == 200:
-                raw_data = response.json()
-                # 네이버 주식 응답 규격 파싱 ([["삼성전자", "005930"], ["삼성전자우", "005935"]])
-                items_group = raw_data.get("items", [])
-                if items_group and len(items_group) > 0:
-                    stock_list = items_group[0]
-                    
-                    output = []
-                    for item in stock_list[:10]:
-                        if len(item) > 1:
-                            # item[0] = 종목명, item[1] = 6자리 주식 티커 코드
-                            output.append({
-                                "symbol": str(item[1]),
-                                "name": str(item[0])
-                            })
-                    return jsonify(output)
+            if not supabase:
+                print("❌ [Search Engine] Supabase 클라이언트가 초기화되지 않았습니다.")
+                return jsonify([])
                 
-                if supabase:
-                    res = supabase.table("kr_stock_list").select("symbol,name").ilike("name", f"%{query}%").limit(10).execute()
-                    return jsonify(res.data if res.data else [])
-            return jsonify([])
+            # 💡 [정밀 쿼리] 종목명(name) 또는 티커코드(symbol) 둘 중 하나만 매칭되어도 잡히도록 or 조건 가드 적용
+            # ilike 구문으로 대소문자 구분 없이 부분 일치 검색 수행
+            res = supabase.table("kr_stock_list")\
+                .select("symbol, name")\
+                .or_(f"name.ilike.%{query}%,symbol.ilike.%{query}%")\
+                .limit(10)\
+                .execute()
+                
+            output = []
+            if res.data:
+                for item in res.data:
+                    output.append({
+                        "symbol": str(item.get("symbol", "")).strip(),
+                        "name": str(item.get("name", "")).strip()
+                    })
+                    
+            return jsonify(output)
+
     except Exception as e:
-        print(f"❌ 국장 자동완성 예외 발생: {str(e)}")
+        print(f"❌ [Search Engine] Supabase 주식 검색 컨트롤러 치명적 예외 발생: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify([])
     
 @api_blueprint.route("/portfolio", methods=["GET"])
