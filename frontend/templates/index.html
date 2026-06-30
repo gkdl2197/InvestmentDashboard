@@ -530,13 +530,25 @@
                 document.getElementById('total-kr-eval').innerText = `₩${data.total_evaluation_krw.toLocaleString()}`;
                 document.getElementById('total-us-eval').innerText = `$${data.total_evaluation_usd.toLocaleString(undefined, {minimumFractionDigits:2})}`;
                 
-                renderProfitLabel('total-kr-profit', 'total-kr-profit-wrapper', data.profit_rate_krw);
-                renderProfitLabel('total-us-profit', 'total-us-profit-wrapper', data.profit_rate_usd);
+                // 💡 [정밀 가드] 존재하지 않는 wrapper ID 참조로 인한 스크립트 전면 마비 현상 원천 차단
+                const krProfitEl = document.getElementById('total-kr-profit');
+                if (krProfitEl) {
+                    const krSign = data.profit_rate_krw > 0 ? '+' : '';
+                    krProfitEl.innerText = `${krSign}${data.profit_rate_krw}%`;
+                    krProfitEl.className = data.profit_rate_krw > 0 ? "font-semibold text-rose-600" : data.profit_rate_krw < 0 ? "font-semibold text-blue-600" : "font-semibold text-slate-500";
+                }
                 
-                // 💡 [긴급 복구] 제대리가 빠트렸던 렌더링 호출 컨트롤러 정밀 주입
+                const usProfitEl = document.getElementById('total-us-profit');
+                if (usProfitEl) {
+                    const usSign = data.profit_rate_usd > 0 ? '+' : '';
+                    usProfitEl.innerText = `${usSign}${data.profit_rate_usd}%`;
+                    usProfitEl.className = data.profit_rate_usd > 0 ? "font-semibold text-rose-600" : data.profit_rate_usd < 0 ? "font-semibold text-blue-600" : "font-semibold text-slate-500";
+                }
+                
+                // 🚀 가드를 통과하여 하단 렌더러 루프 안정적 기동 보장
                 renderPortfolioTable();
                 renderWeightVisualization(data);
-            } catch (e) {}
+            } catch (e) { console.error("포트폴리오 렌더링 예외 발생:", e); }
         }
 
       function renderPortfolioTable() {
@@ -565,7 +577,7 @@
                 `;
             }).join('');
         }
-        
+
         function renderWeightVisualization(data) {
             const container = document.getElementById('weight-bar-container');
             const allStocks = [...(data.portfolio.KR || []), ...(data.portfolio.US || [])];
