@@ -106,32 +106,30 @@ def search_stock():
                 ])
             return jsonify([])
         else:
-            # 💡 [정밀 수술] 네이버 부동산 자동완성 백본망 호출
-            url = f"https://completion.land.naver.com/ac?q={requests.utils.quote(query)}&re=1&vt=2"
+            # 💡 [정밀 수술] 부동산 주소 폐기 -> 실제 네이버 주식 검색 공식 백본망 API로 교체
+            url = f"https://ac.stock.naver.com/ac?q={requests.utils.quote(query)}&target=stock"
             headers = {
-                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
-                "Referer": "https://m.land.naver.com/",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 "Accept": "application/json"
             }
             response = requests.get(url, headers=headers, timeout=5)
             if response.status_code == 200:
                 raw_data = response.json()
-                # 네이버의 3중 중첩 2차원 배열 구조를 무결하게 파괴 분해하여 1차원 리스트로 정렬 추출
+                # 네이버 주식 응답 규격 파싱 ([["삼성전자", "005930"], ["삼성전자우", "005935"]])
                 items_group = raw_data.get("items", [])
                 if items_group and len(items_group) > 0:
-                    stock_list = items_group[0] # 진짜 주식 리스트 배열 획득
+                    stock_list = items_group[0]
                     
                     output = []
                     for item in stock_list[:10]:
                         if len(item) > 1:
-                            # item[0] = 종목명 (예: "삼성전자"), item[1] = 코드 (예: "005930")
+                            # item[0] = 종목명, item[1] = 6자리 주식 티커 코드
                             output.append({
                                 "symbol": str(item[1]),
                                 "name": str(item[0])
                             })
                     return jsonify(output)
                 
-                # 가드가 깨질 경우를 대비한 2차 Supabase 백업 가드 엔진 유지
                 if supabase:
                     res = supabase.table("kr_stock_list").select("symbol,name").ilike("name", f"%{query}%").limit(10).execute()
                     return jsonify(res.data if res.data else [])
