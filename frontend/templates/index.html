@@ -646,35 +646,31 @@
     nameInput.dataset.complexNo = complexNo;
     
     if (areaWrapper) areaWrapper.classList.remove('hidden');
-    areaSelect.innerHTML = '<option value="">국토부 장부 분석 중...</option>';
+    areaSelect.innerHTML = '<option value="">국토부 정식 API 연동 중...</option>';
 
     try {
         const bjdCode = nameInput.dataset.bjdCode || '';
         const response = await fetch(`/api/real-estate/areas?bjd_code=${bjdCode}&name=${encodeURIComponent(cleanName)}`);
-        const debugData = await response.json();
         
-        // 💡 [디버깅 콘솔 출력] 백엔드가 국토부 API에서 받아온 진짜 로그를 콘솔에 뿌립니다.
-        console.log("=== 🚨 국토부 API 통신 실시간 추적 장부 ===");
-        console.log("통신 상태:", debugData.status);
-        console.log("국토부 통신 로그:", debugData.logs);
-        console.log("파싱된 평형 리스트:", debugData.areas);
+        // 💡 백엔드가 뱉은 순정 배열([84.02, 106.98, ...])을 정직하게 수신
+        const areas = await response.json();
+        
+        console.log("=== 📋 국토부 정식 API 연동 결과 ===");
+        console.log("파싱된 평형 리스트:", areas);
         console.log("=========================================");
 
-        // 💡 에러 원인 해결: 객체에서 areas 배열만 정확히 낚아챕니다.
-        const targetAreas = debugData.areas || [];
-        
-        if (targetAreas.length === 0) {
+        if (!areas || areas.length === 0) {
             areaSelect.innerHTML = '<option value="">등록된 실거래 평형 없음</option>';
             return;
         }
         
-        // 정상적으로 평형 목록 매핑
-        areaSelect.innerHTML = targetAreas.map(area => `
+        // 드롭다운 마크업 완벽 매핑
+        areaSelect.innerHTML = areas.map(area => `
             <option value="${area}">${area} ㎡</option>
         `).join('');
     } catch (e) {
-        console.error("평형 스펙 파싱 실패:", e);
-        areaSelect.innerHTML = '<option value="">평형 데이터 연동 실패</option>';
+        console.error("평형 스펙 연동 실패:", e);
+        areaSelect.innerHTML = '<option value="">데이터 로드 실패</option>';
     }
 }
 
