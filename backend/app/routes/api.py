@@ -425,11 +425,13 @@ def get_real_estate_areas():
     if not lawd_cd:
         return jsonify([])
 
+    # 💡 데이터 누락을 원천 차단하기 위해 직전 6개월치 장부를 전부 훑습니다.
+    # 안전하게 당월(7월)을 제외한 1월~6월 데이터를 추적합니다.
     from datetime import datetime, timedelta
     now = datetime.now()
     months_to_try = [
         (now - timedelta(days=30 * i)).strftime("%Y%m")
-        for i in range(1, 4)
+        for i in range(1, 7)
     ]
     
     SERVICE_KEY = os.getenv("MOLIT_API_KEY", "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba")
@@ -445,7 +447,7 @@ def get_real_estate_areas():
                 "LAWD_CD": lawd_cd,
                 "DEAL_YMD": deal_ymd,
                 "pageNo": 1,
-                "numOfRows": 100,
+                "numOfRows": 150,
                 "_type": "json"
             }
             res = requests.get(BASE_URL, params=params, timeout=10)
@@ -466,9 +468,11 @@ def get_real_estate_areas():
             for item in item_list:
                 item_apt = str(item.get("aptNm", "")).replace(" ", "")
                 
+                # 유연한 문자열 매칭으로 국토부 내 해당 아파트의 모든 세대 스캔
                 if clean_target_name in item_apt or item_apt in clean_target_name or any(token in item_apt for token in [complex_name.split()[0], complex_name.split()[-1]] if len(token) > 1):
                     area_val = item.get("excluUseAr")
                     if area_val:
+                        # 소수점 둘째자리까지 정밀 변환 후 저장
                         areas.add(round(float(str(area_val).replace(",", "")), 2))
         except Exception:
             continue
