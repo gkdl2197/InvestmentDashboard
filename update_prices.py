@@ -46,6 +46,11 @@ def get_recent_price(bjd_code, apt_name, area=None):
 
             clean_name = apt_name.replace(" ", "")
             matched = []
+            # ✅ 추가
+            print(f"[DEBUG] {apt_name} {deal_ymd} → totalCount={body.get('totalCount')}, item_list 수={len(item_list)}")
+            if item_list:
+                print(f"[DEBUG] 샘플 aptNm={item_list[0].get('aptNm')}, excluUseAr={item_list[0].get('excluUseAr')}")
+            
             for item in item_list:
                 item_apt = str(item.get("aptNm", "")).replace(" ", "")
                 if clean_name in item_apt or item_apt in clean_name:
