@@ -402,51 +402,74 @@ def search_real_estate():
 from datetime import datetime, timedelta
 
 # ======================================================================
-# [CTO 엔진 확장] 단지명과 bjd_code 기준 ➔ 국토부 실제 거래 평형(면적) 명세 동적 파싱
+# [최종 완치] 기존에 검증된 get_molit_recent_price의 국토부 API 로직을 100% 그대로 활용
+# ======================================================================
+# ======================================================================
+# [최종 완치] 기존에 검증된 get_molit_recent_price의 국토부 API 로직을 100% 그대로 활용
+# ======================================================================
+# ======================================================================
+# [최종 완치] 아파트 단지명 매칭 조건 유연화 보정본 (평형 리스트 추출 완성)
 # ======================================================================
 @api_blueprint.route("/real-estate/areas", methods=["GET"])
 def get_real_estate_areas():
     bjd_code = request.args.get("bjd_code", "").strip()
-    complex_name = request.args.get("name", "").strip()  # 예: 인덕원센트럴푸르지오
+    complex_name = request.args.get("name", "").strip() # 예: 판교밸리 호반써밋
     
     if not bjd_code or not complex_name:
         return jsonify([])
         
-    lawd_cd = bjd_code[:5] if len(bjd_code) >= 5 else None
+    lawd_cd = bjd_code[:5] if bjd_code and len(bjd_code) >= 5 else None
     if not lawd_cd:
         return jsonify([])
 
-    # 국토부 실거래가 오픈API 타격 준비 (2026년 시점 기준 최근 4개월 장부 대조)
+    from datetime import datetime, timedelta
     now = datetime.now()
-    months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(0, 4)]
+    months_to_try = [
+        (now - timedelta(days=30 * i)).strftime("%Y%m")
+        for i in range(0, 4)
+    ]
     
-    SERVICE_KEY = "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba"
-    BASE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade"
+    SERVICE_KEY = os.getenv("MOLIT_API_KEY", "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba")
+    BASE_URL = "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
     
     areas = set()
     clean_target_name = complex_name.replace(" ", "")
 
     for deal_ymd in months_to_try:
         try:
-            # 💡 파이썬 requests 이중 인코딩 차단을 위해 문자열 조립 방식으로 국토부 타격
-            full_url = f"{BASE_URL}?serviceKey={SERVICE_KEY}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&pageNo=1&numOfRows=100"
-            res = requests.get(full_url, timeout=5)
+            params = {
+                "serviceKey": SERVICE_KEY,
+                "LAWD_CD": lawd_cd,
+                "DEAL_YMD": deal_ymd,
+                "pageNo": 1,
+                "numOfRows": 100,
+                "_type": "json"
+            }
+            res = requests.get(BASE_URL, params=params, timeout=10)
             if res.status_code != 200:
                 continue
-                
-            root = ET.fromstring(res.content)
-            item_list = root.findall(".//item")
-            
+
+            data = res.json()
+            body = data.get("response", {}).get("body", {})
+            items = body.get("items", {})
+
+            if not items or items == "":
+                continue
+
+            item_list = items.get("item", [])
+            if isinstance(item_list, dict):
+                item_list = [item_list]
+
             for item in item_list:
-                item_apt = (item.findtext("aptNm") or "").replace(" ", "")
-                # 동일 지역 내 동명 이인 아파트 분격을 위해 단지명 상호 검증
-                if clean_target_name in item_apt or item_apt in clean_target_name:
-                    area_val = item.findtext("excluUseAr")
+                item_apt = str(item.get("aptNm", "")).replace(" ", "")
+                
+                # 💡 [단지명 결합 완치 가드] 
+                # 호반써밋, 트리마제 등 단지명의 핵심 키워드가 국토부 단지명에 포함되어 있거나 반대인 경우 전부 허용
+                if clean_target_name in item_apt or item_apt in clean_target_name or any(token in item_apt for token in [complex_name.split()[0], complex_name.split()[-1]] if len(token) > 1):
+                    area_val = item.get("excluUseAr")
                     if area_val:
-                        # 전용면적을 소수점 둘째자리까지 숫자로 변환하여 적재
-                        areas.add(round(float(area_val.replace(",", "")), 2))
+                        areas.add(round(float(str(area_val).replace(",", "")), 2))
         except Exception:
             continue
             
-    # 프론트엔드 셀렉트 박스 바인딩용 정렬 배열 반환
     return jsonify(sorted(list(areas)))
