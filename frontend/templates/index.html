@@ -270,8 +270,15 @@
                         <input type="number" id="re-target-price" placeholder="네이버 중개업소 실매물이 이 가격 이하로 등록되면 즉시 알림 신호" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white">
                     </div>
                     <div id="re-area-wrapper" class="hidden">
-                        <label class="block text-xs font-bold text-indigo-600 mb-1.5">📐 전용면적 (㎡)</label>
-                        <input type="number" id="re-area" placeholder="예: 84.99" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white">
+                        <label class="block text-xs font-bold text-indigo-600 mb-1.5">📐 전용면적 선택 (평형)</label>
+                        <div class="relative">
+                            <select id="re-area" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white appearance-none cursor-pointer">
+                                <option value="">단지를 먼저 선택해주세요</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-indigo-600">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
                     </div>
                     <div id="re-rent-wrapper">
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">월세 수입 (원/월)</label>
@@ -610,32 +617,116 @@
                 const response = await fetch(`/api/real-estate/search?query=${encodeURIComponent(query)}`);
                 const items = await response.json();
                 
-                // 엘리먼트 존재 여부 안전 가드 추가
-                if (!dropdown) { console.error("re-search-dropdown 엘리먼트가 마크업에 없습니다."); return; }
+                if (!dropdown) return;
                 
                 if (!items || items.length === 0) {
                     dropdown.innerHTML = '<div class="p-3 text-xs text-slate-400 text-center">검색 결과 단지가 없습니다.</div>';
                     dropdown.classList.remove('hidden'); return;
                 }
                 
-                dropdown.innerHTML = items.map(function(item) {
-    return '<div onclick="selectRealEstate(\'' + item.complexNo + '\', \'' + item.name + '\', \'' + item.bjdCode + '\', \'' + item.rawName + '\')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition duration-150">' +
-        '<span class="font-medium text-slate-800 whitespace-nowrap">' + item.name + '</span>' +
-        '<span class="text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded text-indigo-500 font-bold">코드:' + item.complexNo + '</span>' +
-    '</div>';
-}).join('');
+                // 💡 [정밀 보정] 클릭 시 complexNo뿐만 아니라 bjdCode까지 dataset에 주입하도록 설계
+                dropdown.innerHTML = items.map(item => `
+                    <div onclick="document.getElementById('re-name').dataset.bjdCode='${item.bjdCode || ''}'; selectRealEstate('${item.complexNo}', '${item.name}')" class="px-4 py-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center transition duration-150">
+                        <span class="font-medium text-slate-800 whitespace-nowrap">${item.name}</span>
+                        <span class="text-xs font-mono bg-indigo-50 px-2 py-0.5 rounded text-indigo-500 font-bold">코드:${item.complexNo}</span>
+                    </div>
+                `).join('');
                 dropdown.classList.remove('hidden');
-            } catch (e) { console.error("부동산 검색 파이프라인 에러", e); }
+            } catch (e) { console.error("부동산 검색 에러", e); }
         }
 
-       function selectRealEstate(complexNo, name, bjdCode, rawName) {
-    const cleanName = rawName && rawName.length > 0 ? rawName : name.split(' (')[0];
-    document.getElementById('re-name').value = cleanName;
-    document.getElementById('re-search-dropdown').classList.add('hidden');
-    document.getElementById('re-name').dataset.complexNo = complexNo;
-    document.getElementById('re-name').dataset.bjdCode = bjdCode;
-}
+        async function selectRealEstate(complexNo, name) {
+            const cleanName = name.split(' (')[0];
+            const nameInput = document.getElementById('re-name');
+            const areaSelect = document.getElementById('re-area');
+            const areaWrapper = document.getElementById('re-area-wrapper');
+            
+            nameInput.value = cleanName;
+            document.getElementById('re-search-dropdown').classList.add('hidden');
+            
+            // 💡 태그 자체에 고유 메타데이터 바인딩
+            nameInput.dataset.complexNo = complexNo;
+            
+            if (areaWrapper) areaWrapper.classList.remove('hidden');
+            areaSelect.innerHTML = '<option value="">국토부 실거래 평형 조회 중...</option>';
 
+            try {
+                const bjdCode = nameInput.dataset.bjdCode || '';
+                // 백엔드에 구축한 실시간 평형 추출 엔드포인트 타격
+                const response = await fetch(`/api/real-estate/areas?bjd_code=${bjdCode}&name=${encodeURIComponent(cleanName)}`);
+                const areas = await response.json();
+                
+                if (!areas || areas.length === 0) {
+                    areaSelect.innerHTML = '<option value="0">등록된 실거래 평형 없음 (0㎡ 고정)</option>';
+                    return;
+                }
+                
+                // 국토부 장부에 실존하는 면적 스펙셋만 드롭다운에 밀어 넣기
+                areaSelect.innerHTML = areas.map(area => `
+                    <option value="${area}">${area} ㎡</option>
+                `).join('');
+            } catch (e) {
+                console.error("평형 스펙 파싱 실패:", e);
+                areaSelect.innerHTML = '<option value="0">평형 데이터 연동 실패</option>';
+            }
+        }
+
+        // 💡 [CTO 3단계 파이프라인] 부동산 데이터를 모아 백엔드로 전송하는 최종 저장 함수 추가
+        async function saveAsset() {
+            const nameInput = document.getElementById('re-name');
+            const name = nameInput.value.trim();
+            const complexCode = nameInput.dataset.complexNo || '';
+            const bjdCode = nameInput.dataset.bjdCode || '';
+            
+            // 우리가 새로 select박스로 변경한 평형(area) 값 가져오기
+            const areaSelect = document.getElementById('re-area');
+            const area = areaSelect ? areaSelect.value : '0';
+            
+            const holdingType = document.getElementById('re-holding-type').value;
+            const purchasePrice = document.getElementById('re-purchase-price').value;
+            const debt = document.getElementById('re-debt').value;
+            const isWatchlist = document.getElementById('re-is-watchlist').checked;
+            const targetPrice = document.getElementById('re-target-price').value;
+
+            if (!name) { 
+                alert('부동산 매물명을 입력하거나 검색해 주세요.'); 
+                return; 
+            }
+
+            const payload = {
+                name: name,
+                estate_type: "APT",
+                holding_type: holdingType,
+                purchase_price: purchasePrice ? parseFloat(purchasePrice) : 0,
+                current_price: 0,
+                debt: debt ? parseFloat(debt) : 0,
+                is_watchlist: isWatchlist,
+                target_price: targetPrice ? parseFloat(targetPrice) : 0,
+                bjd_code: bjdCode,
+                complex_code: complexCode, // 💡 국토부 고유 단지 코드 매핑
+                area: area ? parseFloat(area) : 0 // 💡 선택된 동적 평형 매핑
+            };
+
+            try {
+                const response = await fetch('/api/real-estate/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const res = await response.json();
+                if (res.status === 'success' || res.success) {
+                    alert('부동산 자산이 성공적으로 등록되었습니다.');
+                    closeModal('asset-modal'); // 모달 닫기
+                    if (typeof fetchRealEstateData === 'function') fetchRealEstateData(); // 목록 새로고침
+                } else { 
+                    alert('등록 실패: ' + (res.message || res.error)); 
+                }
+            } catch (e) { 
+                console.error('부동산 저장 에러:', e); 
+                alert('서버 연동 중 에러가 발생했습니다.');
+            }
+        }
+        
         async function fetchRealEstateData() {
             try {
                 const response = await fetch('/api/real-estate');
@@ -672,14 +763,20 @@
         }
 
         async function submitRealEstate() {
-    const name = document.getElementById('re-name').value.trim();
-    const bjdCode = document.getElementById('re-name').dataset.bjdCode || '';
+    const nameInput = document.getElementById('re-name');
+    const name = nameInput.value.trim();
+    
+    // 💡 [CTO 3단계 엔진 이식] 데이터셋에 심어둔 고유 단지 코드와 법정동 코드 확실하게 포착
+    const complexCode = nameInput.dataset.complexNo || '';
+    const bjdCode = nameInput.dataset.bjdCode || '';
+    
     const complex_type = document.getElementById('re-type').value;
     const holding_type = document.getElementById('re-holding').value;
     const is_watchlist = document.getElementById('re-is-watchlist').checked;
-    const area = is_watchlist ? parseFloat(document.getElementById('re-area').value) || 0 : 0;
-
-    if (document.getElementById('re-area')) document.getElementById('re-area').value = '';
+    
+    // 💡 [셀렉트 진화 반영] 인풋 대신 동적 select 태그로 변경된 평형(area)의 선택값 낚아채기
+    const areaSelect = document.getElementById('re-area');
+    const area = areaSelect ? parseFloat(areaSelect.value) || 0 : 0;
 
     if (!name) { alert("매물 또는 아파트 명칭을 입력해 주십시오."); return; }
 
@@ -712,12 +809,20 @@
                 is_watchlist: is_watchlist,
                 target_price: target_price,
                 bjd_code: bjdCode,
-                area: area    // ← 추가
+                complex_code: complexCode, // 💡 자바스크립트 주석 표준 규격(//)으로 긴급 보정 완료
+                area: area
             })
         });
+        
         if ((await res.json()).status === 'success') {
             alert("성공적으로 등록되었습니다.");
+            
+            // 💡 자바스크립트 주석 표준 규격(//)으로 긴급 보정 완료 및 폼 초기화
             document.getElementById('re-name').value = '';
+            nameInput.dataset.complexNo = '';
+            nameInput.dataset.bjdCode = '';
+            if (areaSelect) areaSelect.innerHTML = '<option value="">단지를 먼저 선택해주세요</option>';
+            
             document.getElementById('re-pur-price').value = '';
             document.getElementById('re-curr-price').value = '';
             document.getElementById('re-debt').value = '';
@@ -725,6 +830,7 @@
             document.getElementById('re-rent').value = '';
             document.getElementById('re-is-watchlist').checked = false;
             if (document.getElementById('re-target-price')) document.getElementById('re-target-price').value = '';
+            
             toggleWatchlistInputs();
             fetchRealEstateData();
         }
