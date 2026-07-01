@@ -413,26 +413,33 @@ from datetime import datetime, timedelta
 # ======================================================================
 # [최종 완치] 당월 가드 적용 및 검증된 params 딕셔너리 구조로 국토부 정밀 타격
 # ======================================================================
+import xml.etree.ElementTree as ET
+
 @api_blueprint.route("/real-estate/areas", methods=["GET"])
 def get_real_estate_areas():
     bjd_code = request.args.get("bjd_code", "").strip()
     complex_name = request.args.get("name", "").strip()
     
     if not bjd_code or not complex_name:
-        return jsonify({"status": "debug", "message": "bjd_code 또는 name 누락", "areas": []})
+        return jsonify([])
         
     lawd_cd = bjd_code[:5] if bjd_code and len(bjd_code) >= 5 else None
     if not lawd_cd:
-        return jsonify({"status": "debug", "message": "법정동코드 생성 실패", "areas": []})
+        return jsonify([])
 
-    # 안전하게 적재가 확인된 2026년 4, 5, 6월 타격
-    months_to_try = ["202606", "202605", "202604"]
-    SERVICE_KEY = os.getenv("MOLIT_API_KEY", "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba")
+    # 안전하게 적재가 확인된 3개월 타격
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    months_to_try = [
+        (now - timedelta(days=30 * i)).strftime("%Y%m")
+        for i in range(1, 4)
+    ]
+    
+    SERVICE_KEY = os.getenv("MOLIT_API_KEY")
     BASE_URL = "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
     
     areas = set()
     clean_target_name = complex_name.replace(" ", "")
-    debug_logs = []
 
     for deal_ymd in months_to_try:
         try:
@@ -441,45 +448,30 @@ def get_real_estate_areas():
                 "LAWD_CD": lawd_cd,
                 "DEAL_YMD": deal_ymd,
                 "pageNo": 1,
-                "numOfRows": 150,
-                "_type": "json"
+                "numOfRows": 150
             }
-            res = requests.get(BASE_URL, params=params, timeout=10)
-            debug_logs.append(f"[{deal_ymd}] HTTP 상태코드: {res.status_code}")
             
+            res = requests.get(BASE_URL, params=params, timeout=10)
             if res.status_code != 200:
                 continue
 
-            data = res.json()
-            # 💡 국토부가 뱉은 response의 최상위 구조가 잘 살려있는지 추적
-            response_obj = data.get("response", {})
-            body = response_obj.get("body", {})
-            items = body.get("items", {})
-
-            if not items or items == "":
-                debug_logs.append(f"[{deal_ymd}] items 필드가 비어있거나 존재하지 않음")
-                continue
-
-            item_list = items.get("item", [])
-            if isinstance(item_list, dict):
-                item_list = [item_list]
-
-            debug_logs.append(f"[{deal_ymd}] 추출된 단지 수: {len(item_list)}")
-
-            for item in item_list:
-                item_apt = str(item.get("aptNm", "")).replace(" ", "")
+            # 💡 [정공법 마감] 국토부 원천 XML 데이터를 트리 구조로 정밀 로드
+            root = ET.fromstring(res.content)
+            
+            # body/items/item 노드를 추적하여 루프 체킹
+            for item in root.findall(".//item"):
+                apt_nm_el = item.find("aptNm")
+                area_el = item.find("excluUseAr")
                 
-                if clean_target_name in item_apt or item_apt in clean_target_name or any(token in item_apt for token in [complex_name.split()[0], complex_name.split()[-1]] if len(token) > 1):
-                    area_val = item.get("excluUseAr")
-                    if area_val:
-                        areas.add(round(float(str(area_val).replace(",", "")), 2))
-        except Exception as e:
-            debug_logs.append(f"[{deal_ymd}] 크래시 에러: {str(e)}")
+                if apt_nm_el is not None and area_el is not None:
+                    item_apt = str(apt_nm_el.text or "").replace(" ", "")
+                    
+                    # 단지명 토큰 교차 매칭 가드
+                    if clean_target_name in item_apt or item_apt in clean_target_name or any(token in item_apt for token in [complex_name.split()[0], complex_name.split()[-1]] if len(token) > 1):
+                        area_val = area_el.text
+                        if area_val:
+                            areas.add(round(float(str(area_val).replace(",", "")), 2))
+        except Exception:
             continue
             
-    # 💡 프론트엔드가 원인 분석을 할 수 있도록 디버깅 맵으로 반환 구조 고도화
-    return jsonify({
-        "status": "debug",
-        "logs": debug_logs,
-        "areas": sorted(list(areas))
-    })
+    return jsonify(sorted(list(areas)))
