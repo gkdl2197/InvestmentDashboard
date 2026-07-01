@@ -427,7 +427,6 @@ def get_real_estate_areas():
     if not lawd_cd:
         return jsonify([])
 
-    # 안전하게 적재가 확인된 3개월 타격
     from datetime import datetime, timedelta
     now = datetime.now()
     months_to_try = [
@@ -455,18 +454,13 @@ def get_real_estate_areas():
             if res.status_code != 200:
                 continue
 
-            # 💡 [정공법 마감] 국토부 원천 XML 데이터를 트리 구조로 정밀 로드
             root = ET.fromstring(res.content)
-            
-            # body/items/item 노드를 추적하여 루프 체킹
             for item in root.findall(".//item"):
                 apt_nm_el = item.find("aptNm")
                 area_el = item.find("excluUseAr")
                 
                 if apt_nm_el is not None and area_el is not None:
                     item_apt = str(apt_nm_el.text or "").replace(" ", "")
-                    
-                    # 단지명 토큰 교차 매칭 가드
                     if clean_target_name in item_apt or item_apt in clean_target_name or any(token in item_apt for token in [complex_name.split()[0], complex_name.split()[-1]] if len(token) > 1):
                         area_val = area_el.text
                         if area_val:
