@@ -410,10 +410,13 @@ from datetime import datetime, timedelta
 # ======================================================================
 # [최종 완치] 아파트 단지명 매칭 조건 유연화 보정본 (평형 리스트 추출 완성)
 # ======================================================================
+# ======================================================================
+# [최종 완치] 당월 가드 적용 및 검증된 params 딕셔너리 구조로 국토부 정밀 타격
+# ======================================================================
 @api_blueprint.route("/real-estate/areas", methods=["GET"])
 def get_real_estate_areas():
     bjd_code = request.args.get("bjd_code", "").strip()
-    complex_name = request.args.get("name", "").strip() # 예: 판교밸리 호반써밋
+    complex_name = request.args.get("name", "").strip()
     
     if not bjd_code or not complex_name:
         return jsonify([])
@@ -426,7 +429,7 @@ def get_real_estate_areas():
     now = datetime.now()
     months_to_try = [
         (now - timedelta(days=30 * i)).strftime("%Y%m")
-        for i in range(0, 4)
+        for i in range(1, 4)
     ]
     
     SERVICE_KEY = os.getenv("MOLIT_API_KEY", "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba")
@@ -463,8 +466,6 @@ def get_real_estate_areas():
             for item in item_list:
                 item_apt = str(item.get("aptNm", "")).replace(" ", "")
                 
-                # 💡 [단지명 결합 완치 가드] 
-                # 호반써밋, 트리마제 등 단지명의 핵심 키워드가 국토부 단지명에 포함되어 있거나 반대인 경우 전부 허용
                 if clean_target_name in item_apt or item_apt in clean_target_name or any(token in item_apt for token in [complex_name.split()[0], complex_name.split()[-1]] if len(token) > 1):
                     area_val = item.get("excluUseAr")
                     if area_val:
