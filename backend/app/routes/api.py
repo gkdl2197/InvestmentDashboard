@@ -319,19 +319,23 @@ def get_real_estate():
 @api_blueprint.route("/real-estate/save", methods=["POST"])
 def save_real_estate():
     supabase = get_supabase()
-    if not supabase: return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
+    if not supabase:
+        return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
         data = request.get_json()
         if data.get("action") == "DELETE":
             asset_id = data.get("id")
-            if asset_id: supabase.table("real_estate_portfolio").delete().eq("id", asset_id).execute()
+            if asset_id:
+                supabase.table("real_estate_portfolio").delete().eq("id", asset_id).execute()
             return jsonify({"status": "success"})
 
-        name = data.get("name")
-        # 💡 [정밀 수정] complex_code를 프론트로부터 넘겨받아 마스터 DB에 확실하게 바인딩
+        name = data.get("name", "").strip()
+        if not name:
+            return jsonify({"status": "error", "message": "이름 누락"}), 400
+
         payload = {
             "name": name,
-            "estate_type": data.get("estate_type"),
+            "estate_type": data.get("estate_type", "APT"),
             "holding_type": "WATCHLIST" if bool(data.get("is_watchlist")) else data.get("holding_type", "OWN"),
             "purchase_price": float(data.get("purchase_price") or 0),
             "current_price": float(data.get("current_price") or 0),
@@ -340,7 +344,7 @@ def save_real_estate():
             "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
             "target_price": float(data.get("target_price") or 0),
             "bjd_code": data.get("bjd_code", ""),
-            "complex_code": data.get("complex_code", ""), # 👈 고유 단지 코드 식별 컬럼 추가
+            "complex_code": data.get("complex_code", ""),
             "area": round(float(data.get("area") or 0), 2)
         }
 
@@ -349,8 +353,10 @@ def save_real_estate():
             supabase.table("real_estate_portfolio").update(payload).eq("name", name).execute()
         else:
             supabase.table("real_estate_portfolio").insert(payload).execute()
+
         return jsonify({"status": "success"})
-    except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
     # ==========================================
 @api_blueprint.route("/real-estate/search", methods=["GET"])
