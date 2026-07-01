@@ -419,26 +419,20 @@ def get_real_estate_areas():
     complex_name = request.args.get("name", "").strip()
     
     if not bjd_code or not complex_name:
-        return jsonify([])
+        return jsonify({"status": "debug", "message": "bjd_code 또는 name 누락", "areas": []})
         
     lawd_cd = bjd_code[:5] if bjd_code and len(bjd_code) >= 5 else None
     if not lawd_cd:
-        return jsonify([])
+        return jsonify({"status": "debug", "message": "법정동코드 생성 실패", "areas": []})
 
-    # 💡 데이터 누락을 원천 차단하기 위해 직전 6개월치 장부를 전부 훑습니다.
-    # 안전하게 당월(7월)을 제외한 1월~6월 데이터를 추적합니다.
-    from datetime import datetime, timedelta
-    now = datetime.now()
-    months_to_try = [
-        (now - timedelta(days=30 * i)).strftime("%Y%m")
-        for i in range(1, 7)
-    ]
-    
+    # 안전하게 적재가 확인된 2026년 4, 5, 6월 타격
+    months_to_try = ["202606", "202605", "202604"]
     SERVICE_KEY = os.getenv("MOLIT_API_KEY", "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba")
     BASE_URL = "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
     
     areas = set()
     clean_target_name = complex_name.replace(" ", "")
+    debug_logs = []
 
     for deal_ymd in months_to_try:
         try:
@@ -451,30 +445,41 @@ def get_real_estate_areas():
                 "_type": "json"
             }
             res = requests.get(BASE_URL, params=params, timeout=10)
+            debug_logs.append(f"[{deal_ymd}] HTTP 상태코드: {res.status_code}")
+            
             if res.status_code != 200:
                 continue
 
             data = res.json()
-            body = data.get("response", {}).get("body", {})
+            # 💡 국토부가 뱉은 response의 최상위 구조가 잘 살려있는지 추적
+            response_obj = data.get("response", {})
+            body = response_obj.get("body", {})
             items = body.get("items", {})
 
             if not items or items == "":
+                debug_logs.append(f"[{deal_ymd}] items 필드가 비어있거나 존재하지 않음")
                 continue
 
             item_list = items.get("item", [])
             if isinstance(item_list, dict):
                 item_list = [item_list]
 
+            debug_logs.append(f"[{deal_ymd}] 추출된 단지 수: {len(item_list)}")
+
             for item in item_list:
                 item_apt = str(item.get("aptNm", "")).replace(" ", "")
                 
-                # 유연한 문자열 매칭으로 국토부 내 해당 아파트의 모든 세대 스캔
                 if clean_target_name in item_apt or item_apt in clean_target_name or any(token in item_apt for token in [complex_name.split()[0], complex_name.split()[-1]] if len(token) > 1):
                     area_val = item.get("excluUseAr")
                     if area_val:
-                        # 소수점 둘째자리까지 정밀 변환 후 저장
                         areas.add(round(float(str(area_val).replace(",", "")), 2))
-        except Exception:
+        except Exception as e:
+            debug_logs.append(f"[{deal_ymd}] 크래시 에러: {str(e)}")
             continue
             
-    return jsonify(sorted(list(areas)))
+    # 💡 프론트엔드가 원인 분석을 할 수 있도록 디버깅 맵으로 반환 구조 고도화
+    return jsonify({
+        "status": "debug",
+        "logs": debug_logs,
+        "areas": sorted(list(areas))
+    })
