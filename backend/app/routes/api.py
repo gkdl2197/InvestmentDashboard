@@ -284,17 +284,6 @@ def get_real_estate():
             debt = float(item.get("debt", 0) or 0)
             monthly_rent = float(item.get("monthly_rent", 0) or 0)
             purchase_price = float(item.get("purchase_price", 0) or 0)
-
-            # 💡 [핵심 엔진] 만약 관심 부동산 그룹이라면 네이버 실시간 매물 최저가를 즉시 크롤링해서 동기화합니다.
-            if is_watch:
-                bjd_code = item.get("bjd_code", "") or ""
-                if bjd_code:
-                    live_price = get_molit_recent_price(bjd_code, name)
-                    if live_price:
-                        c_price = live_price
-                        supabase.table("real_estate_portfolio").update({"current_price": live_price}).eq("id", item.get("id")).execute()
-                else:
-                    print(f"[MOLIT] {name}: bjd_code 없음, 시세 조회 스킵")
         
             if h_type == "TENANT_LEASE":
                 computed_eval = 0 
@@ -340,16 +329,18 @@ def save_real_estate():
 
         name = data.get("name")
         payload = {
-    "name": name, "estate_type": data.get("estate_type"),
-    "holding_type": "WATCHLIST" if bool(data.get("is_watchlist")) else data.get("holding_type", "OWN"),
-    "purchase_price": float(data.get("purchase_price") or 0),
-    "current_price": float(data.get("current_price") or 0),
-    "debt": float(data.get("debt") or 0),
-    "monthly_rent": float(data.get("monthly_rent") or 0),
-    "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
-    "target_price": float(data.get("target_price") or 0),
-    "bjd_code": data.get("bjd_code", "")
-}
+            "name": name,
+            "estate_type": data.get("estate_type"),
+            "holding_type": "WATCHLIST" if bool(data.get("is_watchlist")) else data.get("holding_type", "OWN"),
+            "purchase_price": float(data.get("purchase_price") or 0),
+            "current_price": float(data.get("current_price") or 0),
+            "debt": float(data.get("debt") or 0),
+            "monthly_rent": float(data.get("monthly_rent") or 0),
+            "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
+            "target_price": float(data.get("target_price") or 0),
+            "bjd_code": data.get("bjd_code", ""),
+            "area": round(float(data.get("area") or 0), 2)
+        }
 
         existing = supabase.table("real_estate_portfolio").select("id").eq("name", name).execute()
         if existing.data and len(existing.data) > 0:

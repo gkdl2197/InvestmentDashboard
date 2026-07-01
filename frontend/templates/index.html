@@ -269,6 +269,10 @@
                         <label class="block text-xs font-bold text-indigo-600 mb-1.5">🔔 네이버 부동산 실매물 가격 알림 목표가 (원)</label>
                         <input type="number" id="re-target-price" placeholder="네이버 중개업소 실매물이 이 가격 이하로 등록되면 즉시 알림 신호" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white">
                     </div>
+                    <div id="re-area-wrapper" class="hidden">
+                        <label class="block text-xs font-bold text-indigo-600 mb-1.5">📐 전용면적 (㎡)</label>
+                        <input type="number" id="re-area" placeholder="예: 84.99" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white">
+                    </div>
                     <div id="re-rent-wrapper">
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">월세 수입 (원/월)</label>
                         <input type="number" id="re-rent" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
@@ -372,6 +376,7 @@
 
         function toggleWatchlistInputs() {
             const isWatchlist = document.getElementById('re-is-watchlist').checked;
+            const areaWrapper = document.getElementById('re-area-wrapper');  // ← 추가
             const purWrapper = document.getElementById('re-pur-price-wrapper');
             const currWrapper = document.getElementById('re-curr-price-wrapper');
             const depositWrapper = document.getElementById('re-deposit-wrapper');
@@ -388,6 +393,7 @@
                 debtWrapper.classList.add('hidden');
                 rentWrapper.classList.add('hidden');
                 targetWrapper.classList.remove('hidden');
+                areaWrapper.classList.remove('hidden');  // ← 추가
                 holdingSelect.disabled = true;
                 typeSelect.disabled = true;
             } else {
@@ -398,6 +404,7 @@
                 depositWrapper.classList.remove('hidden');
                 debtWrapper.classList.remove('hidden');
                 rentWrapper.classList.remove('hidden');
+                areaWrapper.classList.add('hidden');  // ← 추가
                 targetWrapper.classList.add('hidden');
                 toggleReInputs();
             }
@@ -670,6 +677,9 @@
     const complex_type = document.getElementById('re-type').value;
     const holding_type = document.getElementById('re-holding').value;
     const is_watchlist = document.getElementById('re-is-watchlist').checked;
+    const area = is_watchlist ? parseFloat(document.getElementById('re-area').value) || 0 : 0;
+
+    if (document.getElementById('re-area')) document.getElementById('re-area').value = '';
 
     if (!name) { alert("매물 또는 아파트 명칭을 입력해 주십시오."); return; }
 
@@ -701,7 +711,8 @@
                 monthly_rent: target_rent_field,
                 is_watchlist: is_watchlist,
                 target_price: target_price,
-                bjd_code: bjdCode
+                bjd_code: bjdCode,
+                area: area    // ← 추가
             })
         });
         if ((await res.json()).status === 'success') {
