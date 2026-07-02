@@ -284,6 +284,7 @@ def get_real_estate():
             debt = float(item.get("debt", 0) or 0)
             monthly_rent = float(item.get("monthly_rent", 0) or 0)
             purchase_price = float(item.get("purchase_price", 0) or 0)
+            deposit = float(item.get("deposit", 0) or 0) # 💡 보증금 로드 추가
         
             if h_type == "TENANT_LEASE":
                 computed_eval = 0 
@@ -300,6 +301,7 @@ def get_real_estate():
             estate_data = {
                 "id": item.get("id"), "name": name, "estate_type": item.get("estate_type"), "holding_type": h_type,
                 "purchase_price": purchase_price, "current_price": c_price, "debt": debt, "monthly_rent": monthly_rent,
+                "deposit": deposit, # 💡 프론트엔드로 전달
                 "is_watchlist": is_watch, "target_price": float(item.get("target_price", 0) or 0) 
             }
 
@@ -333,19 +335,24 @@ def save_real_estate():
         if not name:
             return jsonify({"status": "error", "message": "이름 누락"}), 400
 
+        # [save_real_estate 함수 내부]
         payload = {
             "name": name,
             "estate_type": data.get("estate_type", "APT"),
             "holding_type": "WATCHLIST" if bool(data.get("is_watchlist")) else data.get("holding_type", "OWN"),
-            "purchase_price": float(data.get("purchase_price") or 0),
-            "current_price": float(data.get("current_price") or 0),
-            "debt": float(data.get("debt") or 0),
-            "monthly_rent": float(data.get("monthly_rent") or 0),
+            
+            # 💡 쉼표(,) 에러 방지 및 누락된 보증금(deposit) 항목 이식 완료!
+            "purchase_price": float(str(data.get("purchase_price") or "0").replace(",", "")),
+            "current_price": float(str(data.get("current_price") or "0").replace(",", "")),
+            "debt": float(str(data.get("debt") or "0").replace(",", "")),
+            "monthly_rent": float(str(data.get("monthly_rent") or "0").replace(",", "")),
+            "deposit": float(str(data.get("deposit") or "0").replace(",", "")), 
+            
             "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
-            "target_price": float(data.get("target_price") or 0),
+            "target_price": float(str(data.get("target_price") or "0").replace(",", "")),
             "bjd_code": data.get("bjd_code", ""),
             "complex_code": data.get("complex_code", ""),
-            "area": round(float(data.get("area") or 0), 2)
+            "area": round(float(str(data.get("area") or "0").replace(",", "")), 2)
         }
 
         existing = supabase.table("real_estate_portfolio").select("id").eq("name", name).execute()
