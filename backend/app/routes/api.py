@@ -492,10 +492,21 @@ def get_real_estate_price():
     BASE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade"
 
     from datetime import datetime, timedelta
+    import requests
+    import xml.etree.ElementTree as ET
+
     now = datetime.now()
-    # 시세는 조금 더 넓게 최근 6개월 치 장부를 뒤집니다
-    months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(0, 6)]
-    clean_name = complex_name.replace(" ", "")
+    # 💡 [동기화 1] 시세 조회도 평형과 완벽히 똑같이 12개월 장부를 뒤집니다.
+    months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(0, 12)]
+    
+    # 💡 [동기화 2] 평형에서 썼던 '너그러운 단지명 필터' 동일 적용
+    noise_words = ["아파트", "주상복합", "단지", " "]
+    clean_target = complex_name
+    for word in noise_words:
+        clean_target = clean_target.replace(word, "")
+    tokens = [t for t in complex_name.split() if len(t) > 1 and t not in noise_words]
+
+    matched = []
 
     for deal_ymd in months_to_try:
         try:
@@ -504,16 +515,22 @@ def get_real_estate_price():
             if res.status_code != 200:
                 continue
 
-            import xml.etree.ElementTree as ET
             root = ET.fromstring(res.content)
-            matched = []
 
             for item in root.findall(".//item"):
                 item_apt = (item.findtext("aptNm") or "").replace(" ", "")
-                if not (clean_name in item_apt or item_apt in clean_name):
+                
+                # 💡 유연한 매칭
+                is_match = False
+                if clean_target in item_apt or item_apt in clean_target:
+                    is_match = True
+                elif tokens and any(token in item_apt for token in tokens):
+                    is_match = True
+
+                if not is_match:
                     continue
 
-                # 평형(면적) 오차범위 3㎡ 이내 필터링
+                # 💡 평형(면적) 오차범위 3㎡ 이내 필터링
                 if area_float > 0:
                     try:
                         item_area = float((item.findtext("excluUseAr") or "0").replace(",", ""))
@@ -534,16 +551,20 @@ def get_real_estate_price():
                     })
                 except:
                     continue
-
-            # 가장 최근 거래일자 기준으로 정렬 후 1건 반환
-            if matched:
-                matched.sort(key=lambda x: x["date"], reverse=True)
-                return jsonify({
-                    "found": True,
-                    "price": matched[0]["price"],
-                    "deal_date": matched[0]["deal_date"]
-                })
         except Exception:
             continue
+
+        # 💡 [핵심 최적화] 가장 최근 달(월)에서 거래를 하나라도 찾았다면, 
+        # 더 옛날 장부는 뒤질 필요 없이 즉시 반복문을 종료하여 속도를 끌어올립니다.
+        if matched:
+            break 
+
+    if matched:
+        matched.sort(key=lambda x: x["date"], reverse=True)
+        return jsonify({
+            "found": True,
+            "price": matched[0]["price"],
+            "deal_date": matched[0]["deal_date"]
+        })
 
     return jsonify({"found": False, "price": 0, "deal_date": ""})
