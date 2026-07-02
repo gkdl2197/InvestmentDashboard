@@ -850,26 +850,27 @@ function toggleWatchlistInputs() {
     }
 }
 
-// 💡 프론트엔드: 평형 선택 트리거 (강력한 요소 탐색기 탑재)
+// 💡 프론트엔드: 평형 선택 트리거 (dataset 연동 완치본)
 function handleAreaChange() {
     let rawArea = document.getElementById('re-area').value;
     if (!rawArea) return;
     
-    // "㎡", "평" 등 모든 문자를 제거하고 "84.97" 숫자만 남깁니다.
+    // "㎡" 등 문자 제거하고 숫자만 추출
     let cleanArea = rawArea.replace(/[^0-9.]/g, ''); 
 
-    // 💡 HTML ID가 다를 경우를 대비한 불도저식 탐색!
-    let nameInput = document.getElementById('re-name') || document.getElementById('re-apt-name') || document.querySelector('input[placeholder*="단지명"]');
-    let bjdInput = document.getElementById('re-bjd-code') || document.getElementById('re-bjd') || document.querySelector('input[name="bjd_code"]');
+    let nameInput = document.getElementById('re-name');
+    if (!nameInput) return;
+
+    let aptName = nameInput.value;
     
-    let aptName = nameInput ? nameInput.value : '';
-    let bjdCode = bjdInput ? bjdInput.value : '';
+    // 💡 [핵심 완치] CTO님이 숨겨두신 dataset 주머니에서 법정동 코드를 정확히 꺼내옵니다!
+    let bjdCode = nameInput.dataset.bjdCode || '';
 
     if (bjdCode && aptName && cleanArea) {
+        // 드디어 모든 재료가 모였습니다. 시세 조회 슛!
         fetchAreaPrice(bjdCode, aptName, cleanArea);
     } else {
         console.warn(`❌ [디버그] 단지명: ${aptName}, 법정동: ${bjdCode}, 평형: ${cleanArea}`);
-        console.warn("단지명이나 법정동 코드를 저장하는 HTML input 요소의 ID를 찾지 못했습니다.");
     }
 }
 
