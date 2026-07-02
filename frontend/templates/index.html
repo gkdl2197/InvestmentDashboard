@@ -608,6 +608,28 @@
             }).join('');
         }
 
+        function switchTableTab(tab) {
+            // 전역 테이블 탭 상태 동기화
+            currentTableTab = tab;
+
+            const btnKr = document.getElementById('tab-kr-btn');
+            const btnUs = document.getElementById('tab-us-btn');
+
+            // 버튼 활성화/비활성화 Tailwind UI 교차 스위칭
+            if (tab === 'US') {
+                if (btnUs) btnUs.className = "px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition";
+                if (btnKr) btnKr.className = "px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition";
+            } else {
+                if (btnKr) btnKr.className = "px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition";
+                if (btnUs) btnUs.className = "px-4 py-1.5 text-slate-500 hover:text-slate-800 text-xs font-semibold rounded-lg transition";
+            }
+
+            // 선택된 마켓에 맞춰 자산 명세 테이블 실시간 재렌더링
+            if (typeof renderPortfolioTable === 'function') {
+                renderPortfolioTable();
+            }
+        }
+
         async function searchRealEstate() {
             const query = document.getElementById('re-name').value.trim();
             const dropdown = document.getElementById('re-search-dropdown');
