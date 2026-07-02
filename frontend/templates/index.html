@@ -795,15 +795,14 @@ function toggleWatchlistInputs() {
             } catch (e) { console.error("부동산 동기화 예외", e); }
         }
 
-        // ✅ 국토부 실거래가 실시간 화면 바인딩 및 폼 자동 입력 함수
-// ✅ 국토부 실거래가 실시간 화면 바인딩 및 폼 자동 입력 함수
+        // ✅ 국토부 실거래가 실시간 화면 바인딩 및 폼 자동 입력 함수 (옵션 B)
 async function fetchAreaPrice(bjdCode, aptName, area) {
     const priceWrapper = document.getElementById('re-price-result-wrapper');
     const priceEl = document.getElementById('re-price-result');
     
     if (!bjdCode || !aptName || !area) return;
     
-    // 💡 관심 매물 체크 유무와 상관없이 무조건 뷰를 엽니다.
+    // 💡 관심 매물 여부 상관없이 뷰(View)는 무조건 열어서 국토부 시세를 띄워줍니다.
     if(priceWrapper) priceWrapper.classList.remove('hidden');
     if(priceEl) {
         priceEl.innerText = '⏳ 국토부 실거래가 조회 중...';
@@ -820,16 +819,15 @@ async function fetchAreaPrice(bjdCode, aptName, area) {
                 priceEl.className = 'w-full bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm font-bold text-emerald-700';
             }
 
-            // 💡 [UX 자동 입력: 완치본]
-            // ID가 다를 경우를 대비해 name 속성으로도 싹 다 뒤져서 찾아냅니다!
-            const currPriceInput = document.getElementById('re-curr-price') || document.querySelector('input[name="current_price"]') || document.querySelector('input[name="re-curr-price"]');
+            // 💡 [UX 자동 입력: CTO님 철학 유지]
+            const currPriceInput = document.getElementById('re-curr-price');
             const isWatchlist = document.getElementById('re-is-watchlist');
             
+            // 관심 매물이 아니면서, 현재 시세 입력창이 화면에 존재(렌더링)할 때만 폼에 꽂아줍니다!
             if (currPriceInput && isWatchlist && !isWatchlist.checked) {
-                // 숫자에 콤마(,)를 찍어서 예쁘게 넣습니다.
-                currPriceInput.value = data.price.toLocaleString();
+                currPriceInput.value = data.price.toLocaleString(); // 콤마(,) 예쁘게 찍기
                 
-                // 브라우저가 값이 변했다는 걸 확실히 인지하도록 강제로 이벤트를 빵 터뜨려줍니다!
+                // 브라우저가 값이 갱신되었음을 100% 인지하도록 강제 이벤트 슛!
                 currPriceInput.dispatchEvent(new Event('input', { bubbles: true }));
                 currPriceInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
@@ -846,6 +844,7 @@ async function fetchAreaPrice(bjdCode, aptName, area) {
         }
     }
 }
+
 
         async function submitRealEstate() {
     const nameInput = document.getElementById('re-name');
