@@ -417,25 +417,34 @@ def get_real_estate_areas():
         return jsonify([])
 
     from datetime import datetime, timedelta
+    import requests
+    import xml.etree.ElementTree as ET
+
     now = datetime.now()
-    months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(1, 4)]
+    # 💡 [핵심 1] 장부 스캔 기간을 3개월 ➔ 12개월(1년)로 대폭 확장! (가뭄 해소)
+    months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(0, 12)]
     
-    # 💡 403 에러 나는 Dev 주소 버리고 정식 순정 API 게이트웨이로 교체
     SERVICE_KEY = "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba"
     BASE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade"
     
     areas = set()
-    clean_target_name = complex_name.replace(" ", "")
+    
+    # 💡 [핵심 2] '아파트', '주상복합' 등 국토부의 제멋대로 수식어를 원천 제거하여 순수 단지명만 추출
+    noise_words = ["아파트", "주상복합", "단지", " "]
+    clean_target = complex_name
+    for word in noise_words:
+        clean_target = clean_target.replace(word, "")
+        
+    # 예: '경희궁의아침 4단지' -> ['경희궁의아침', '4단지'] 토큰화
+    tokens = [t for t in complex_name.split() if len(t) > 1 and t not in noise_words]
 
     for deal_ymd in months_to_try:
         try:
-            # 💡 params= 방식 대신 이중 인코딩 원천 차단 다이렉트 URL 조립
             full_url = f"{BASE_URL}?serviceKey={SERVICE_KEY}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&pageNo=1&numOfRows=100"
             res = requests.get(full_url, timeout=8)
             if res.status_code != 200:
                 continue
                 
-            import xml.etree.ElementTree as ET
             root = ET.fromstring(res.content)
             for item in root.findall(".//item"):
                 apt_nm_el = item.find("aptNm")
@@ -443,8 +452,15 @@ def get_real_estate_areas():
                 
                 if apt_nm_el is not None and area_el is not None:
                     item_apt = str(apt_nm_el.text or "").replace(" ", "")
-                    # 단지명 필터링 (띄어쓰기 등 예외 처리 포함)
-                    if clean_target_name in item_apt or item_apt in clean_target_name or any(token in item_apt for token in [complex_name.split()[0], complex_name.split()[-1]] if len(token) > 1):
+                    
+                    # 💡 매칭 조건 유연화: 핵심 이름이 포함되거나 토큰 중 하나라도 걸리면 합격
+                    is_match = False
+                    if clean_target in item_apt or item_apt in clean_target:
+                        is_match = True
+                    elif tokens and any(token in item_apt for token in tokens):
+                        is_match = True
+                        
+                    if is_match:
                         area_val = area_el.text
                         if area_val:
                             areas.add(round(float(str(area_val).replace(",", "")), 2))
