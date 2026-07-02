@@ -382,41 +382,50 @@
         }
 
         function toggleWatchlistInputs() {
-            const isWatchlist = document.getElementById('re-is-watchlist').checked;
-            const areaWrapper = document.getElementById('re-area-wrapper');  // ← 추가
-            const purWrapper = document.getElementById('re-pur-price-wrapper');
-            const currWrapper = document.getElementById('re-curr-price-wrapper');
-            const depositWrapper = document.getElementById('re-deposit-wrapper');
-            const debtWrapper = document.getElementById('re-debt-wrapper');
-            const rentWrapper = document.getElementById('re-rent-wrapper');
-            const targetWrapper = document.getElementById('re-target-wrapper');
-            const holdingSelect = document.getElementById('re-holding');
-            const typeSelect = document.getElementById('re-type');
+    // 💡 CTO님이 기존에 잘 짜두신 DOM 캐싱 변수들 100% 보존
+    const isWatchlist = document.getElementById('re-is-watchlist').checked;
+    const areaWrapper = document.getElementById('re-area-wrapper');  
+    const purWrapper = document.getElementById('re-pur-price-wrapper');
+    const currWrapper = document.getElementById('re-curr-price-wrapper');
+    const depositWrapper = document.getElementById('re-deposit-wrapper');
+    const debtWrapper = document.getElementById('re-debt-wrapper');
+    const rentWrapper = document.getElementById('re-rent-wrapper');
+    const targetWrapper = document.getElementById('re-target-wrapper');
+    const holdingSelect = document.getElementById('re-holding');
+    const typeSelect = document.getElementById('re-type');
+    const priceWrapper = document.getElementById('re-price-result-wrapper');
 
-            if (isWatchlist) {
-                purWrapper.classList.add('hidden');
-                currWrapper.classList.add('hidden');
-                depositWrapper.classList.add('hidden');
-                debtWrapper.classList.add('hidden');
-                rentWrapper.classList.add('hidden');
-                targetWrapper.classList.remove('hidden');
-                areaWrapper.classList.remove('hidden');  // ← 추가
-                holdingSelect.disabled = true;
-                typeSelect.disabled = true;
-            } else {
-                holdingSelect.disabled = false;
-                typeSelect.disabled = false;
-                purWrapper.classList.remove('hidden');
-                currWrapper.classList.remove('hidden');
-                depositWrapper.classList.remove('hidden');
-                debtWrapper.classList.remove('hidden');
-                rentWrapper.classList.remove('hidden');
-                areaWrapper.classList.add('hidden');  // ← 추가
-                targetWrapper.classList.add('hidden');
-                toggleReInputs();
-            }
-        }
+    // 💡 [핵심 UX 개선] areaWrapper와 priceWrapper는 이제 숨김(hidden) 처리 목록에서 완전히 제외합니다.
+    
+    if (isWatchlist) {
+        // 관심 매물 모드: 일반 자산 입력폼 숨기기
+        if(purWrapper) purWrapper.classList.add('hidden');
+        if(currWrapper) currWrapper.classList.add('hidden');
+        if(depositWrapper) depositWrapper.classList.add('hidden');
+        if(debtWrapper) debtWrapper.classList.add('hidden');
+        if(rentWrapper) rentWrapper.classList.add('hidden');
+        
+        // 목표가 알림창 켜기 & 셀렉트박스 잠금
+        if(targetWrapper) targetWrapper.classList.remove('hidden');
+        if(holdingSelect) holdingSelect.disabled = true;
+        if(typeSelect) typeSelect.disabled = true;
+    } else {
+        // 일반 등록 모드: 폼 열기 & 셀렉트박스 잠금 해제
+        if(holdingSelect) holdingSelect.disabled = false;
+        if(typeSelect) typeSelect.disabled = false;
 
+        if(purWrapper) purWrapper.classList.remove('hidden');
+        if(currWrapper) currWrapper.classList.remove('hidden');
+        if(depositWrapper) depositWrapper.classList.remove('hidden');
+        if(debtWrapper) debtWrapper.classList.remove('hidden');
+        if(rentWrapper) rentWrapper.classList.remove('hidden');
+        
+        if(targetWrapper) targetWrapper.classList.add('hidden');
+        
+        // 보유 형태(자가/전세/갭)에 따라 세부 폼을 다시 정렬하는 기존 함수 호출
+        if(typeof toggleReInputs === 'function') toggleReInputs();
+    }
+}
         function toggleReInputs() {
             const holding = document.getElementById('re-holding').value;
             const purWrapper = document.getElementById('re-pur-price-wrapper');
@@ -786,6 +795,50 @@
                 renderWatchlistTable(data.watch_assets || []);
             } catch (e) { console.error("부동산 동기화 예외", e); }
         }
+
+        // ✅ 국토부 실거래가 실시간 화면 바인딩 및 폼 자동 입력 함수
+async function fetchAreaPrice(bjdCode, aptName, area) {
+    const priceWrapper = document.getElementById('re-price-result-wrapper');
+    const priceEl = document.getElementById('re-price-result');
+    
+    if (!bjdCode || !aptName || !area) return;
+    
+    // 💡 관심 매물 체크 유무와 상관없이 무조건 뷰를 엽니다.
+    if(priceWrapper) priceWrapper.classList.remove('hidden');
+    if(priceEl) {
+        priceEl.innerText = '⏳ 국토부 실거래가 조회 중...';
+        priceEl.className = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-500';
+    }
+
+    try {
+        const res = await fetch(`/api/real-estate/price?bjd_code=${bjdCode}&name=${encodeURIComponent(aptName)}&area=${area}`);
+        const data = await res.json();
+
+        if (data.found && data.price > 0) {
+            if(priceEl) {
+                priceEl.innerText = '₩' + data.price.toLocaleString() + '  (' + data.deal_date + ' 거래)';
+                priceEl.className = 'w-full bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm font-bold text-emerald-700';
+            }
+
+            // 💡 [UX 자동 입력] 일반 자산 등록 모드일 경우, '현재 시세' 칸에 가격을 알아서 꽂아줍니다.
+            const currPriceInput = document.getElementById('re-curr-price');
+            const isWatchlist = document.getElementById('re-is-watchlist');
+            if (currPriceInput && isWatchlist && !isWatchlist.checked) {
+                currPriceInput.value = data.price;
+            }
+        } else {
+            if(priceEl) {
+                priceEl.innerText = '최근 12개월 내 실거래 데이터가 없습니다.';
+                priceEl.className = 'w-full bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm font-bold text-amber-600';
+            }
+        }
+    } catch (e) {
+        if(priceEl) {
+            priceEl.innerText = '시세 조회 중 오류가 발생했습니다.';
+            priceEl.className = 'w-full bg-rose-50 border border-rose-200 rounded-xl px-4 py-2.5 text-sm font-bold text-rose-600';
+        }
+    }
+}
 
         async function submitRealEstate() {
     const nameInput = document.getElementById('re-name');
