@@ -270,16 +270,16 @@
                         <input type="number" id="re-target-price" placeholder="네이버 중개업소 실매물이 이 가격 이하로 등록되면 즉시 알림 신호" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white">
                     </div>
                     <div id="re-area-wrapper" class="hidden">
-                        <label class="block text-xs font-bold text-indigo-600 mb-1.5">📐 전용면적 선택 (평형)</label>
-                        <div class="relative">
-                            <select id="re-area" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white appearance-none cursor-pointer">
-                                <option value="">단지를 먼저 선택해주세요</option>
-                            </select>
-                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-indigo-600">
-                                <i class="fa-solid fa-chevron-down text-xs"></i>
-                            </div>
-                        </div>
-                    </div>
+                         <label class="block text-xs font-bold text-indigo-600 mb-1.5">📐 전용면적 선택 (평형)</label>
+                         <div class="relative">
+                        <select id="re-area" onchange="handleAreaChange()" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white appearance-none cursor-pointer">
+            <option value="">단지를 먼저 선택해주세요</option>
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-indigo-600">
+            <i class="fa-solid fa-chevron-down text-xs"></i>
+        </div>
+    </div>
+</div>
                     <div id="re-rent-wrapper">
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">월세 수입 (원/월)</label>
                         <input type="number" id="re-rent" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
@@ -796,7 +796,7 @@ function toggleWatchlistInputs() {
         }
 
         // ✅ 국토부 실거래가 실시간 화면 바인딩 및 폼 자동 입력 함수 (옵션 B)
-async function fetchAreaPrice(bjdCode, aptName, area) {
+        async function fetchAreaPrice(bjdCode, aptName, area) {
     const priceWrapper = document.getElementById('re-price-result-wrapper');
     const priceEl = document.getElementById('re-price-result');
     
@@ -819,15 +819,20 @@ async function fetchAreaPrice(bjdCode, aptName, area) {
                 priceEl.className = 'w-full bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm font-bold text-emerald-700';
             }
 
-            // 💡 [UX 자동 입력: CTO님 철학 유지]
+            // 💡 [UX 자동 입력 + 폼 잠금(수정 불가) 처리]
             const currPriceInput = document.getElementById('re-curr-price');
             const isWatchlist = document.getElementById('re-is-watchlist');
             
-            // 관심 매물이 아니면서, 현재 시세 입력창이 화면에 존재(렌더링)할 때만 폼에 꽂아줍니다!
+            // 관심 매물이 아니면서, 현재 시세 입력창이 화면에 존재할 때만
             if (currPriceInput && isWatchlist && !isWatchlist.checked) {
-                currPriceInput.value = data.price.toLocaleString(); // 콤마(,) 예쁘게 찍기
+                // 1. 시세 자동 입력
+                currPriceInput.value = data.price.toLocaleString(); 
                 
-                // 브라우저가 값이 갱신되었음을 100% 인지하도록 강제 이벤트 슛!
+                // 2. CTO님 요청사항: 사용자가 직접 타이핑해서 수정하지 못하도록 강제 잠금(ReadOnly)
+                currPriceInput.readOnly = true; 
+                currPriceInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                
+                // 3. 브라우저 갱신 이벤트
                 currPriceInput.dispatchEvent(new Event('input', { bubbles: true }));
                 currPriceInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
@@ -845,6 +850,22 @@ async function fetchAreaPrice(bjdCode, aptName, area) {
     }
 }
 
+// 💡 여기에 방금 만든 트리거 함수를 추가합니다!
+function handleAreaChange() {
+    let rawArea = document.getElementById('re-area').value;
+    if (!rawArea) return;
+    
+    let cleanArea = rawArea.replace(/[^0-9.]/g, ''); 
+
+    let bjdCode = document.getElementById('re-bjd-code') ? document.getElementById('re-bjd-code').value : '';
+    let aptName = document.getElementById('re-name') ? document.getElementById('re-name').value : '';
+
+    if (bjdCode && aptName && cleanArea) {
+        fetchAreaPrice(bjdCode, aptName, cleanArea);
+    } else {
+        console.warn("❌ 시세 조회를 위한 단지 정보가 폼에 부족합니다.");
+    }
+}
 
         async function submitRealEstate() {
     const nameInput = document.getElementById('re-name');
