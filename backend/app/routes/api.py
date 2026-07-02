@@ -398,22 +398,11 @@ def search_real_estate():
         print(f"❌ 부동산 검색(DB) 엔드포인트 예외: {str(e)}")
         return jsonify([])
     
-    import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+import xml.etree.ElementTree as ET
 
 # ======================================================================
-# [최종 완치] 기존에 검증된 get_molit_recent_price의 국토부 API 로직을 100% 그대로 활용
+# 🏢 [국토부 오픈API 연동 인프라 - 클로드 수석님 마감본 (2단계 & 3단계)]
 # ======================================================================
-# ======================================================================
-# [최종 완치] 기존에 검증된 get_molit_recent_price의 국토부 API 로직을 100% 그대로 활용
-# ======================================================================
-# ======================================================================
-# [최종 완치] 아파트 단지명 매칭 조건 유연화 보정본 (평형 리스트 추출 완성)
-# ======================================================================
-# ======================================================================
-# [최종 완치] 당월 가드 적용 및 검증된 params 딕셔너리 구조로 국토부 정밀 타격
-# ======================================================================
-import xml.etree.ElementTree as ET
 
 @api_blueprint.route("/real-estate/areas", methods=["GET"])
 def get_real_estate_areas():
@@ -429,31 +418,24 @@ def get_real_estate_areas():
 
     from datetime import datetime, timedelta
     now = datetime.now()
-    months_to_try = [
-        (now - timedelta(days=30 * i)).strftime("%Y%m")
-        for i in range(1, 4)
-    ]
+    months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(1, 4)]
     
-    SERVICE_KEY = os.getenv("MOLIT_API_KEY")
-    BASE_URL = "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
+    # 💡 403 에러 나는 Dev 주소 버리고 정식 순정 API 게이트웨이로 교체
+    SERVICE_KEY = "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba"
+    BASE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade"
     
     areas = set()
     clean_target_name = complex_name.replace(" ", "")
 
     for deal_ymd in months_to_try:
         try:
-            params = {
-                "serviceKey": SERVICE_KEY,
-                "LAWD_CD": lawd_cd,
-                "DEAL_YMD": deal_ymd,
-                "pageNo": 1,
-                "numOfRows": 150
-            }
-            
-            res = requests.get(BASE_URL, params=params, timeout=10)
+            # 💡 params= 방식 대신 이중 인코딩 원천 차단 다이렉트 URL 조립
+            full_url = f"{BASE_URL}?serviceKey={SERVICE_KEY}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&pageNo=1&numOfRows=100"
+            res = requests.get(full_url, timeout=8)
             if res.status_code != 200:
                 continue
-
+                
+            import xml.etree.ElementTree as ET
             root = ET.fromstring(res.content)
             for item in root.findall(".//item"):
                 apt_nm_el = item.find("aptNm")
@@ -461,6 +443,7 @@ def get_real_estate_areas():
                 
                 if apt_nm_el is not None and area_el is not None:
                     item_apt = str(apt_nm_el.text or "").replace(" ", "")
+                    # 단지명 필터링 (띄어쓰기 등 예외 처리 포함)
                     if clean_target_name in item_apt or item_apt in clean_target_name or any(token in item_apt for token in [complex_name.split()[0], complex_name.split()[-1]] if len(token) > 1):
                         area_val = area_el.text
                         if area_val:
@@ -469,3 +452,82 @@ def get_real_estate_areas():
             continue
             
     return jsonify(sorted(list(areas)))
+
+
+@api_blueprint.route("/real-estate/price", methods=["GET"])
+def get_real_estate_price():
+    bjd_code = request.args.get("bjd_code", "").strip()
+    complex_name = request.args.get("name", "").strip()
+    area = request.args.get("area", "0").strip()
+
+    if not bjd_code or not complex_name:
+        return jsonify({"found": False, "price": 0, "deal_date": ""})
+
+    lawd_cd = bjd_code[:5] if len(bjd_code) >= 5 else None
+    if not lawd_cd:
+        return jsonify({"found": False, "price": 0, "deal_date": ""})
+
+    try:
+        area_float = float(area)
+    except:
+        area_float = 0.0
+
+    SERVICE_KEY = "ed5eb4cbab5b22ea97fe39d5fbb5c3b0b27037c3bc5c1d43ed3e2f7e37d261ba"
+    BASE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade"
+
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    # 시세는 조금 더 넓게 최근 6개월 치 장부를 뒤집니다
+    months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(0, 6)]
+    clean_name = complex_name.replace(" ", "")
+
+    for deal_ymd in months_to_try:
+        try:
+            full_url = f"{BASE_URL}?serviceKey={SERVICE_KEY}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&pageNo=1&numOfRows=100"
+            res = requests.get(full_url, timeout=8)
+            if res.status_code != 200:
+                continue
+
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(res.content)
+            matched = []
+
+            for item in root.findall(".//item"):
+                item_apt = (item.findtext("aptNm") or "").replace(" ", "")
+                if not (clean_name in item_apt or item_apt in clean_name):
+                    continue
+
+                # 평형(면적) 오차범위 3㎡ 이내 필터링
+                if area_float > 0:
+                    try:
+                        item_area = float((item.findtext("excluUseAr") or "0").replace(",", ""))
+                        if abs(item_area - area_float) > 3:
+                            continue
+                    except:
+                        continue
+
+                try:
+                    price = int((item.findtext("dealAmount") or "0").replace(",", "")) * 10000
+                    year = (item.findtext("dealYear") or "").strip()
+                    month = (item.findtext("dealMonth") or "").strip().zfill(2)
+                    day = (item.findtext("dealDay") or "").strip().zfill(2)
+                    matched.append({
+                        "price": price,
+                        "date": f"{year}{month}{day}",
+                        "deal_date": f"{year}-{month}"
+                    })
+                except:
+                    continue
+
+            # 가장 최근 거래일자 기준으로 정렬 후 1건 반환
+            if matched:
+                matched.sort(key=lambda x: x["date"], reverse=True)
+                return jsonify({
+                    "found": True,
+                    "price": matched[0]["price"],
+                    "deal_date": matched[0]["deal_date"]
+                })
+        except Exception:
+            continue
+
+    return jsonify({"found": False, "price": 0, "deal_date": ""})
