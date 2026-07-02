@@ -324,15 +324,9 @@ def save_real_estate():
     if not supabase:
         return jsonify({"status": "error", "message": "Supabase 미연결"}), 500
     try:
-        import re # 💡 정규식 모듈 임포트
-        
-        # 💡 [핵심] 숫자와 소수점(.)을 제외한 모든 문자(㎡, 콤마, 원 등)를 무자비하게 삭제하는 함수
-        def clean_number(val):
-            if not val: return 0.0
-            cleaned = re.sub(r'[^0-9.]', '', str(val))
-            return float(cleaned) if cleaned else 0.0
+        import re
         data = request.get_json()
-
+        
         if data.get("action") == "DELETE":
             asset_id = data.get("id")
             if asset_id:
@@ -343,23 +337,26 @@ def save_real_estate():
         if not name:
             return jsonify({"status": "error", "message": "이름 누락"}), 400
 
-        # 💡 에러의 주범이었던 payload를 clean_number로 싹 감싸줍니다!
+        # 💡 [핵심 철벽 방어] 프론트엔드에서 어떤 문자가 섞여와도 숫자와 소수점만 추출!
+        def clean_float(val):
+            if not val: return 0.0
+            cleaned = re.sub(r'[^0-9.]', '', str(val))
+            return float(cleaned) if cleaned else 0.0
+
         payload = {
-            "name": data.get("name", "").strip(),
+            "name": name,
             "estate_type": data.get("estate_type", "APT"),
-            "holding_type": "WATCHLIST" if bool(data.get("is_watchlist")) else data.get("holding_type", "OWN"),
-            
-            "purchase_price": clean_number(data.get("purchase_price")),
-            "current_price": clean_number(data.get("current_price")),
-            "debt": clean_number(data.get("debt")),
-            "monthly_rent": clean_number(data.get("monthly_rent")),
-            "deposit": clean_number(data.get("deposit")),
-            "target_price": clean_number(data.get("target_price")),
-            "area": round(clean_number(data.get("area")), 2), # "84.97 ㎡" -> 84.97 로 완벽 변환
-            
+            "holding_type": "WATCHLIST" if str(data.get("is_watchlist")).lower() == "true" else data.get("holding_type", "OWN"),
+            "purchase_price": clean_float(data.get("purchase_price")),
+            "current_price": clean_float(data.get("current_price")),
+            "debt": clean_float(data.get("debt")),
+            "monthly_rent": clean_float(data.get("monthly_rent")),
+            "deposit": clean_float(data.get("deposit")), # 보증금 안전 처리
             "is_watchlist": str(data.get("is_watchlist")).lower() == "true",
+            "target_price": clean_float(data.get("target_price")),
             "bjd_code": data.get("bjd_code", ""),
-            "complex_code": data.get("complex_code", "")
+            "complex_code": data.get("complex_code", ""),
+            "area": round(clean_float(data.get("area")), 2) # "84.97 ㎡" 가 날아와도 84.97로 완벽 저장!
         }
 
         existing = supabase.table("real_estate_portfolio").select("id").eq("name", name).execute()
@@ -370,8 +367,8 @@ def save_real_estate():
 
         return jsonify({"status": "success"})
     except Exception as e:
+        print(f"❌ [백엔드 저장 에러] {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
     # ==========================================
 @api_blueprint.route("/real-estate/search", methods=["GET"])
 def search_real_estate():

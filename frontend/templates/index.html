@@ -850,20 +850,26 @@ function toggleWatchlistInputs() {
     }
 }
 
-// 💡 여기에 방금 만든 트리거 함수를 추가합니다!
+// 💡 프론트엔드: 평형 선택 트리거 (강력한 요소 탐색기 탑재)
 function handleAreaChange() {
     let rawArea = document.getElementById('re-area').value;
     if (!rawArea) return;
     
+    // "㎡", "평" 등 모든 문자를 제거하고 "84.97" 숫자만 남깁니다.
     let cleanArea = rawArea.replace(/[^0-9.]/g, ''); 
 
-    let bjdCode = document.getElementById('re-bjd-code') ? document.getElementById('re-bjd-code').value : '';
-    let aptName = document.getElementById('re-name') ? document.getElementById('re-name').value : '';
+    // 💡 HTML ID가 다를 경우를 대비한 불도저식 탐색!
+    let nameInput = document.getElementById('re-name') || document.getElementById('re-apt-name') || document.querySelector('input[placeholder*="단지명"]');
+    let bjdInput = document.getElementById('re-bjd-code') || document.getElementById('re-bjd') || document.querySelector('input[name="bjd_code"]');
+    
+    let aptName = nameInput ? nameInput.value : '';
+    let bjdCode = bjdInput ? bjdInput.value : '';
 
     if (bjdCode && aptName && cleanArea) {
         fetchAreaPrice(bjdCode, aptName, cleanArea);
     } else {
-        console.warn("❌ 시세 조회를 위한 단지 정보가 폼에 부족합니다.");
+        console.warn(`❌ [디버그] 단지명: ${aptName}, 법정동: ${bjdCode}, 평형: ${cleanArea}`);
+        console.warn("단지명이나 법정동 코드를 저장하는 HTML input 요소의 ID를 찾지 못했습니다.");
     }
 }
 
