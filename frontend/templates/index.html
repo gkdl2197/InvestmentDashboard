@@ -47,7 +47,7 @@
         <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-slate-900 tracking-tight" id="dashboard-title">자산 현황 대시보드</h1>
-                <p class="text-sm text-slate-500 mt-1" id="dashboard-subtitle">실시간 환율 및 국내외 주식 포트폴리오를 통합 관리합니다.</p>
+                <p class="text-sm text-slate-500 mt-1" id="dashboard-subtitle">주식 및 부동산 자산 포트폴리오를 통합 관리합니다</p>
             </div>
             <div class="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm flex items-center space-x-4 self-start sm:self-center">
                 <div class="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
@@ -193,11 +193,11 @@
         <div id="section-re" class="hidden">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">총 보유 부동산 시세 총액</p>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">보유 부동산 시세 총액</p>
                     <p class="text-2xl font-bold text-slate-800 mt-2" id="re-total-eval">₩0</p>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">총 금융권 대출금</p>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">총 대출금</p>
                     <p class="text-2xl font-bold text-slate-800 mt-2 text-rose-500" id="re-total-debt">₩0</p>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -205,7 +205,7 @@
                     <p class="text-2xl font-bold text-slate-800 mt-2 text-amber-500" id="re-total-deposit">₩0</p>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm bg-gradient-to-br from-indigo-50/50 to-white border-indigo-100">
-                    <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider">부동산 부문 실제 내 순자산</p>
+                    <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider">실제 순자산</p>
                     <p class="text-2xl font-bold text-indigo-700 mt-2 font-mono" id="re-net-worth">₩0</p>
                 </div>
             </div>
@@ -254,7 +254,7 @@
                         <input type="number" id="re-pur-price" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
                     <div id="re-curr-price-wrapper">
-                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">현재 시세 (원)</label>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5">최근 실거래가 (원)</label>
                         <input type="number" id="re-curr-price" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
                     <div id="re-debt-wrapper">
@@ -292,7 +292,7 @@
 
             <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
                 <div class="px-6 py-4 border-b border-slate-100">
-                    <h3 class="text-base font-bold text-slate-900">실물 부동산 및 임차 자산 현황 명세</h3>
+                    <h3 class="text-base font-bold text-slate-900">부동산 자산 현황</h3>
                 </div>
                 <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse">
@@ -302,7 +302,7 @@
                                 <th class="py-3 px-6">유형</th>
                                 <th class="py-3 px-6">보유/거주 형태</th>
                                 <th class="py-3 px-6 text-right">최초 매입가</th>
-                                <th class="py-3 px-6 text-right text-slate-700">현재 시세</th>
+                                <th class="py-3 px-6 text-right text-slate-700">최근 실거래가</th>
                                 <th class="py-3 px-6 text-right text-amber-600">내 전세 보증금</th>
                                 <th class="py-3 px-6 text-right">대출금</th>
                                 <th class="py-3 px-6 text-right">임대 보증금(받은돈)</th>
@@ -322,7 +322,7 @@
                         <i class="fa-solid fa-bell text-amber-500 animate-bounce"></i>
                         <h3 class="text-base font-bold text-slate-900">네이버 부동산 실제 등록 매물 실시간 모니터링 현황</h3>
                     </div>
-                    <span class="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2.5 py-1 rounded-md">중개업소 실시간 최저가 기준 틱</span>
+                    <span class="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2.5 py-1 rounded-md">중개업소 실시간 최저가 기준</span>
                 </div>
                 <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse">
