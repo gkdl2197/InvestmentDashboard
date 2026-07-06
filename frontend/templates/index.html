@@ -161,7 +161,7 @@
                 <div class="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div class="flex items-center space-x-2">
                         <span class="w-2 h-5 bg-indigo-600 rounded-full"></span>
-                        <h3 class="text-base font-bold text-slate-900">보유 자산 상세 정보 명세</h3>
+                        <h3 class="text-base font-bold text-slate-900">보유 주식 현황</h3>
                     </div>
                     <div class="bg-slate-100 p-1 rounded-xl flex space-x-1 self-start sm:self-center">
                         <button id="tab-kr-btn" onclick="switchTableTab('KR')" class="px-4 py-1.5 bg-white text-slate-800 text-xs font-semibold rounded-lg shadow-sm transition">국내 주식 (KR)</button>
@@ -315,27 +315,18 @@
             </div>
 
             <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
-                <div class="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/30 to-white flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
-                        <i class="fa-solid fa-bell text-amber-500 animate-bounce"></i>
-                        <h3 class="text-base font-bold text-slate-900">네이버 부동산 실제 등록 매물 실시간 모니터링 현황</h3>
-                    </div>
-                    <span class="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2.5 py-1 rounded-md">중개업소 실시간 최저가 기준</span>
+                <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-robot text-indigo-500"></i>
+                        AI 관심 부동산 매수 타이밍 브리핑
+                    </h3>
+                    <span class="text-xs font-bold text-indigo-600 bg-indigo-100 px-3 py-1.5 rounded-full">실거래 기반 추정 알고리즘 가동 중</span>
                 </div>
-                <div class="overflow-x-auto w-full">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-semibold text-xs tracking-wider uppercase whitespace-nowrap">
-                                <th class="py-3 px-6">관심 아파트 단지명</th>
-                                <th class="py-3 px-6 text-center">유형</th>
-                                <th class="py-3 px-6 text-right text-indigo-600">네이버 부동산 현재 최저가 매물</th>
-                                <th class="py-3 px-6 text-right text-rose-500">지정한 매수 목표가</th>
-                                <th class="py-3 px-6 text-center">시세 알림 상태</th>
-                                <th class="py-3 px-6 text-center">관리</th>
-                            </tr>
-                        </thead>
-                        <tbody id="re-watchlist-body" class="text-sm text-slate-600 divide-y divide-slate-100"></tbody>
-                    </table>
+                
+                <div id="watchlist-cards-container" class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 bg-slate-50/50">
+                    <div class="col-span-full text-center py-8 text-slate-500 font-medium">
+                        관심 부동산을 등록하면 AI 매수 타이밍 분석이 시작됩니다.
+                    </div>
                 </div>
             </div>
         </div>
@@ -789,7 +780,7 @@ function toggleWatchlistInputs() {
                 document.getElementById('re-net-worth').innerText = `₩${final_net_worth.toLocaleString()}`;
 
                 renderRealEstateTable(raw_holding_assets);
-                renderWatchlistTable(data.watch_assets || []);
+                renderWatchListCards(data.watch_assets || []);
             } catch (e) { console.error("부동산 동기화 예외", e); }
         }
 
@@ -1014,28 +1005,100 @@ function renderRealEstateTable(holdingAssets) {
         `;
     }).join('');
 }
-        function renderWatchlistTable(assets) {
-            const tbody = document.getElementById('re-watchlist-body');
-            if(!assets || assets.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">현재 모니터링 중인 관심 아파트 단지가 없습니다.</td></tr>`; return;
+        // 💡 V2.0 관심부동산 렌더링 엔진
+        function renderStars(confidence) {
+            const stars = Math.round(confidence / 20);
+            return '★'.repeat(stars) + '☆'.repeat(5 - stars);
+        }
+
+        function getGradeColor(grade) {
+            const colors = {
+                'STRONG BUY': 'text-rose-600 bg-rose-50 border-rose-200',
+                'BUY': 'text-orange-600 bg-orange-50 border-orange-200',
+                'GOOD': 'text-emerald-600 bg-emerald-50 border-emerald-200',
+                'NORMAL': 'text-blue-600 bg-blue-50 border-blue-200',
+                'WAIT': 'text-slate-600 bg-slate-100 border-slate-200'
+            };
+            return colors[grade] || 'text-slate-600 bg-slate-100';
+        }
+
+        // 기존 getRealEstateData() 성공 로직 안에서 watch_assets를 받아 호출할 함수
+        async function renderWatchListCards(watchAssets) {
+            const container = document.getElementById('watchlist-cards-container');
+            if (!watchAssets || watchAssets.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center py-8 text-slate-500 font-medium">등록된 관심 부동산이 없습니다.</div>';
+                return;
             }
-            tbody.innerHTML = assets.map(item => {
-                const livePrice = item.current_price || 0; const targetPrice = item.target_price || 0;
-                const isSignalHit = livePrice > 0 && targetPrice > 0 && livePrice <= targetPrice;
-                const badge = isSignalHit 
-                    ? `<span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-bold animate-pulse"><i class="fa-solid fa-fire-flame-curved mr-1"></i> 매수 기회 도달!</span>`
-                    : `<span class="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium">추적 중</span>`;
-                return `
-                    <tr class="hover:bg-slate-50 whitespace-nowrap">
-                        <td class="p-4 font-bold text-slate-800">${item.name}</td>
-                        <td class="p-4 text-center"><span class="px-2 py-0.5 bg-slate-100 text-xs">아파트</span></td>
-                        <td class="p-4 text-right font-mono font-bold text-indigo-600">₩${livePrice.toLocaleString()}</td>
-                        <td class="p-4 text-right font-mono font-medium text-slate-600">₩${targetPrice.toLocaleString()}</td>
-                        <td class="p-4 text-center">${badge}</td>
-                        <td class="p-4 text-center"><button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button></td>
-                    </tr>
-                `;
-            }).join('');
+
+            container.innerHTML = ''; // 초기화
+
+            for (const asset of watchAssets) {
+                // 뼈대 먼저 생성
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'bg-white border border-slate-200 rounded-2xl shadow-sm p-5 relative';
+                cardDiv.innerHTML = `<div class="text-center text-sm text-slate-400 py-10"><i class="fa-solid fa-spinner fa-spin mr-2"></i>AI 분석 중...</div>`;
+                container.appendChild(cardDiv);
+
+                try {
+                    // API 찔러서 분석 데이터 가져오기
+                    const res = await fetch(`/api/real-estate/analysis?aptCode=${asset.complex_code}&area=${asset.area}&targetPrice=${asset.target_price}`);
+                    const data = await res.json();
+                    
+                    const gapText = data.price_gap !== 0 ? `(${(data.price_gap / 100000000).toFixed(1)}억)` : '';
+                    
+                    cardDiv.innerHTML = `
+                        <div class="absolute top-4 right-4">
+                            <button onclick="deleteRealEstate('${asset.id}')" class="text-slate-300 hover:text-rose-500 transition"><i class="fa-regular fa-trash-can"></i></button>
+                        </div>
+                        <div class="border-b border-slate-100 pb-3 mb-4 pr-6">
+                            <h3 class="text-lg font-extrabold text-slate-800 truncate">${asset.name}</h3>
+                            <span class="text-xs font-bold text-slate-400">전용 ${asset.area}㎡</span>
+                        </div>
+                        
+                        <div class="space-y-3.5">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-bold text-slate-500">최근 실거래</span>
+                                <div class="text-right">
+                                    <span class="text-sm font-extrabold text-slate-800">${(data.latest_price / 100000000).toFixed(1)}억</span>
+                                    <span class="text-[10px] text-slate-400 ml-1">(${data.latest_date.slice(0, 7)})</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-between items-center bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-50">
+                                <span class="text-xs font-extrabold text-indigo-900">시장 추정가</span>
+                                <div class="text-right flex items-center gap-1.5">
+                                    <span class="text-base font-black text-indigo-600">${(data.estimated_price / 100000000).toFixed(1)}억</span>
+                                    <span class="text-[10px] text-amber-400 tracking-widest">${renderStars(data.confidence)}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-bold text-slate-500">내 목표가</span>
+                                <div class="text-right">
+                                    <span class="text-sm font-extrabold text-slate-800">${(asset.target_price / 100000000).toFixed(1)}억</span>
+                                    <span class="text-[10px] font-bold ${data.price_gap < 0 ? 'text-blue-500' : 'text-rose-500'} ml-1">${gapText}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-between items-center pt-2">
+                                <span class="text-xs font-bold text-slate-500">매수 매력도</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-black text-slate-800">${data.score}점</span>
+                                    <span class="px-2 py-0.5 border rounded text-[10px] font-black tracking-wide ${getGradeColor(data.grade)}">${data.grade}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3 p-3 bg-slate-50 rounded-xl">
+                                <p class="text-[11px] font-medium text-slate-600 leading-relaxed break-keep">
+                                    ${data.analysis.summary}
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                } catch (e) {
+                    cardDiv.innerHTML = `<div class="text-center text-xs text-rose-500 font-bold py-10">데이터 로드 실패</div>`;
+                }
+            }
         }
     </script>
 </body>

@@ -579,3 +579,84 @@ def get_real_estate_price():
         })
 
     return jsonify({"found": False, "price": 0, "deal_date": ""})
+
+import datetime
+
+# 💡 [V2.0] 시장 추정가 보정 지수
+def market_index_factor():
+    return 1.0
+
+# 💡 [V2.0] 신뢰도 산출 (100점 만점)
+def calculate_confidence(transactions, latest_date_str):
+    if not transactions: return 0
+    score = 100
+    latest_date = datetime.datetime.strptime(latest_date_str, "%Y-%m-%d")
+    days_passed = (datetime.datetime.now() - latest_date).days
+    
+    if days_passed > 90: score -= 15
+    elif days_passed > 180: score -= 30
+    if len(transactions) < 3: score -= 10
+    if len(transactions) < 1: score -= 20
+    return max(0, score)
+
+# 💡 [V2.0] 매수 매력도 산출
+def calculate_buy_score(latest_price, estimated_price, target_price):
+    score = 70 
+    if latest_price < estimated_price: score += 10
+    else: score -= 5
+        
+    if target_price > 0:
+        gap_ratio = (latest_price - target_price) / target_price
+        if gap_ratio <= 0.05: score += 15
+        elif gap_ratio > 0.15: score -= 10
+            
+    if score >= 90: grade = "STRONG BUY"
+    elif score >= 80: grade = "BUY"
+    elif score >= 70: grade = "GOOD"
+    elif score >= 60: grade = "NORMAL"
+    else: grade = "WAIT"
+        
+    return min(100, max(0, score)), grade
+
+# 🚀 [V2.0] 관심부동산 AI 분석 라우터
+@api_blueprint.route("/real-estate/analysis", methods=["GET"])
+def analyze_real_estate():
+    try:
+        apt_code = request.args.get("aptCode", "")
+        area = request.args.get("area", "")
+        target_price = float(request.args.get("targetPrice") or 0)
+        
+        # ⚠️ [안전 샌드박스] 국토부 연동 전, UI 검증을 위한 더미 거래 데이터
+        transactions = [
+            {"price": 4380000000, "date": "2026-05-12"},
+            {"price": 4390000000, "date": "2026-04-20"},
+            {"price": 4490000000, "date": "2026-02-15"}
+        ]
+        
+        latest_tx = transactions[0]
+        latest_price = latest_tx["price"]
+        latest_date = latest_tx["date"]
+        
+        avg_price = sum(t["price"] for t in transactions) / len(transactions)
+        estimated_price = avg_price * market_index_factor()
+        
+        confidence = calculate_confidence(transactions, latest_date)
+        score, grade = calculate_buy_score(latest_price, estimated_price, target_price)
+        price_gap = target_price - estimated_price if target_price else 0
+        
+        # ⚠️ [안전 샌드박스] API 비용 방지를 위해 하드코딩된 브리핑
+        ai_summary = "최근 실거래가가 시장 추정가보다 소폭 낮게 형성되어 있습니다. 사용자의 목표가에 근접하고 있어 매수 매력도가 높은 편입니다. 급매물이 나올 경우 긍정적인 검토를 권장합니다."
+
+        return jsonify({
+            "latest_price": latest_price,
+            "latest_date": latest_date,
+            "estimated_price": round(estimated_price),
+            "confidence": confidence,
+            "score": score,
+            "grade": grade,
+            "price_gap": price_gap,
+            "trend": "UP",
+            "analysis": {"transaction_count": len(transactions), "summary": ai_summary}
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
