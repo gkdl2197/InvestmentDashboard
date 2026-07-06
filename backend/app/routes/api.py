@@ -740,12 +740,13 @@ def analyze_real_estate():
         price_gap = target_price - estimated_price if target_price else 0
         
         # 4. Gemini API를 통한 동적 AI 브리핑 생성
-        from dotenv import load_dotenv
-        load_dotenv(override=True)
-        
+        from dotenv import load_dotenv, find_dotenv
+        load_dotenv(find_dotenv(), override=True)
+
         api_key = os.getenv("GEMINI_API_KEY")
+        print(f"🔑 [디버그] 읽어온 API KEY: {api_key[:10]}... (키가 보이면 정상!)")
         if api_key:
-            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
             
             prompt = (
                 f"너는 부동산 투자 분석 AI 에이전트이다. 다음 팩트 데이터를 바탕으로 "
@@ -758,14 +759,9 @@ def analyze_real_estate():
                 f"출력 시 반드시 존댓말(해요체 또는 하십시오체)을 사용하고, 다른 서론이나 설명 없이 분석 본문만 딱 3문장 이내로 출력하라."
             )
             
+            headers = {"Content-Type": "application/json"}
             payload = {
-                "contents": [
-                    {
-                        "parts": [
-                            {"text": prompt}
-                        ]
-                    }
-                ],
+                "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {
                     "maxOutputTokens": 250,
                     "temperature": 0.3
@@ -773,6 +769,7 @@ def analyze_real_estate():
             }
             
             try:
+                import requests
                 response = requests.post(gemini_url, headers=headers, json=payload, timeout=6)
                 if response.status_code == 200:
                     res_json = response.json()
