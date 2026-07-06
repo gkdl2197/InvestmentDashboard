@@ -740,9 +740,12 @@ def analyze_real_estate():
         price_gap = target_price - estimated_price if target_price else 0
         
         # 4. Gemini API를 통한 동적 AI 브리핑 생성
+        from dotenv import load_dotenv
+        load_dotenv(override=True)
+        
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
-            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
             
             prompt = (
                 f"너는 부동산 투자 분석 AI 에이전트이다. 다음 팩트 데이터를 바탕으로 "
