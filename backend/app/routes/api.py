@@ -660,8 +660,8 @@ def analyze_real_estate():
                 from datetime import datetime, timedelta
 
                 now = datetime.now()
-                # 최근 12개월 데이터를 순차적으로 뒤짐
-                months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(0, 12)]
+                # 최근 6개월 데이터를 순차적으로 뒤짐 (회의록 스펙 반영 및 속도 최적화)
+                months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(0, 6)]
                 
                 noise_words = ["아파트", "주상복합", "단지", " "]
                 clean_target = complex_name
@@ -712,8 +712,8 @@ def analyze_real_estate():
                     except Exception:
                         continue
                     
-                    # 속도 향상을 위해 트랜잭션이 6개 이상 모이면 과거 데이터 조회 생략
-                    if len(transactions) >= 6:
+                    # 속도 향상을 위해 트랜잭션이 3개 이상 모이면 과거 데이터 조회 생략 (최적화)
+                    if len(transactions) >= 3:
                         break
 
         # 3. 데이터가 없을 경우 안전하게 fallback mock 데이터 적용

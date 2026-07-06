@@ -1030,74 +1030,111 @@ function renderRealEstateTable(holdingAssets) {
                 return;
             }
 
-            container.innerHTML = ''; // 초기화
+            // 첫 로딩(안내 문구나 빈 화면 상태)일 때만 화면에 전체 분석 스피너를 보여줌
+            const isFirstLoad = container.querySelector('.text-slate-500') || container.innerHTML.trim() === '';
+            if (isFirstLoad) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-16 text-indigo-500 font-bold">
+                        <i class="fa-solid fa-spinner fa-spin fa-2xl mb-3 block"></i>
+                        AI 부동산 매수 등급 및 시장 가치 분석 중...
+                    </div>
+                `;
+            }
 
-            for (const asset of watchAssets) {
-                // 뼈대 먼저 생성
-                const cardDiv = document.createElement('div');
-                cardDiv.className = 'bg-white border border-slate-200 rounded-2xl shadow-sm p-5 relative';
-                cardDiv.innerHTML = `<div class="text-center text-sm text-slate-400 py-10"><i class="fa-solid fa-spinner fa-spin mr-2"></i>AI 분석 중...</div>`;
-                container.appendChild(cardDiv);
+            try {
+                // 병렬(Promise.all)로 API를 동시 요청하여 로딩 속도 극대화
+                const cardDataPromises = watchAssets.map(async (asset) => {
+                    try {
+                        const res = await fetch(`/api/real-estate/analysis?aptCode=${asset.complex_code}&area=${asset.area}&targetPrice=${asset.target_price}`);
+                        const data = await res.json();
+                        return { asset, data, success: true };
+                    } catch (e) {
+                        return { asset, success: false };
+                    }
+                });
 
-                try {
-                    // API 찔러서 분석 데이터 가져오기
-                    const res = await fetch(`/api/real-estate/analysis?aptCode=${asset.complex_code}&area=${asset.area}&targetPrice=${asset.target_price}`);
-                    const data = await res.json();
-                    
+                const results = await Promise.all(cardDataPromises);
+
+                // 모든 카드가 계산되면 단 한 번의 DOM 갱신으로 깜빡임 차단
+                let cardsHtml = '';
+                for (const res of results) {
+                    const asset = res.asset;
+                    if (!res.success) {
+                        cardsHtml += `
+                            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 relative">
+                                <div class="absolute top-4 right-4">
+                                    <button onclick="deleteRealEstate('${asset.id}')" class="text-slate-300 hover:text-rose-500 transition"><i class="fa-regular fa-trash-can"></i></button>
+                                </div>
+                                <div class="border-b border-slate-100 pb-3 mb-4 pr-6">
+                                    <h3 class="text-lg font-extrabold text-slate-800 truncate">${asset.name}</h3>
+                                    <span class="text-xs font-bold text-slate-400">전용 ${asset.area}㎡</span>
+                                </div>
+                                <div class="text-center text-xs text-rose-500 font-bold py-10">데이터 로드 실패</div>
+                            </div>
+                        `;
+                        continue;
+                    }
+
+                    const data = res.data;
                     const gapText = data.price_gap !== 0 ? `(${(data.price_gap / 100000000).toFixed(1)}억)` : '';
                     
-                    cardDiv.innerHTML = `
-                        <div class="absolute top-4 right-4">
-                            <button onclick="deleteRealEstate('${asset.id}')" class="text-slate-300 hover:text-rose-500 transition"><i class="fa-regular fa-trash-can"></i></button>
-                        </div>
-                        <div class="border-b border-slate-100 pb-3 mb-4 pr-6">
-                            <h3 class="text-lg font-extrabold text-slate-800 truncate">${asset.name}</h3>
-                            <span class="text-xs font-bold text-slate-400">전용 ${asset.area}㎡</span>
-                        </div>
-                        
-                        <div class="space-y-3.5">
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs font-bold text-slate-500">최근 실거래</span>
-                                <div class="text-right">
-                                    <span class="text-sm font-extrabold text-slate-800">${(data.latest_price / 100000000).toFixed(1)}억</span>
-                                    <span class="text-[10px] text-slate-400 ml-1">(${data.latest_date.slice(0, 7)})</span>
-                                </div>
+                    cardsHtml += `
+                        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 relative">
+                            <div class="absolute top-4 right-4">
+                                <button onclick="deleteRealEstate('${asset.id}')" class="text-slate-300 hover:text-rose-500 transition"><i class="fa-regular fa-trash-can"></i></button>
+                            </div>
+                            <div class="border-b border-slate-100 pb-3 mb-4 pr-6">
+                                <h3 class="text-lg font-extrabold text-slate-800 truncate">${asset.name}</h3>
+                                <span class="text-xs font-bold text-slate-400">전용 ${asset.area}㎡</span>
                             </div>
                             
-                            <div class="flex justify-between items-center bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-50">
-                                <span class="text-xs font-extrabold text-indigo-900">시장 추정가</span>
-                                <div class="text-right flex items-center gap-1.5">
-                                    <span class="text-base font-black text-indigo-600">${(data.estimated_price / 100000000).toFixed(1)}억</span>
-                                    <span class="text-[10px] text-amber-400 tracking-widest">${renderStars(data.confidence)}</span>
+                            <div class="space-y-3.5">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-bold text-slate-500">최근 실거래</span>
+                                    <div class="text-right">
+                                        <span class="text-sm font-extrabold text-slate-800">${(data.latest_price / 100000000).toFixed(1)}억</span>
+                                        <span class="text-[10px] text-slate-400 ml-1">(${data.latest_date.slice(0, 7)})</span>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs font-bold text-slate-500">내 목표가</span>
-                                <div class="text-right">
-                                    <span class="text-sm font-extrabold text-slate-800">${(asset.target_price / 100000000).toFixed(1)}억</span>
-                                    <span class="text-[10px] font-bold ${data.price_gap < 0 ? 'text-blue-500' : 'text-rose-500'} ml-1">${gapText}</span>
+                                
+                                <div class="flex justify-between items-center bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-50">
+                                    <span class="text-xs font-extrabold text-indigo-900">시장 추정가</span>
+                                    <div class="text-right flex items-center gap-1.5">
+                                        <span class="text-base font-black text-indigo-600">${(data.estimated_price / 100000000).toFixed(1)}억</span>
+                                        <span class="text-[10px] text-amber-400 tracking-widest">${renderStars(data.confidence)}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div class="flex justify-between items-center pt-2">
-                                <span class="text-xs font-bold text-slate-500">매수 매력도</span>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-sm font-black text-slate-800">${data.score}점</span>
-                                    <span class="px-2 py-0.5 border rounded text-[10px] font-black tracking-wide ${getGradeColor(data.grade)}">${data.grade}</span>
+                                
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-bold text-slate-500">내 목표가</span>
+                                    <div class="text-right">
+                                        <span class="text-sm font-extrabold text-slate-800">${(asset.target_price / 100000000).toFixed(1)}억</span>
+                                        <span class="text-[10px] font-bold ${data.price_gap < 0 ? 'text-blue-500' : 'text-rose-500'} ml-1">${gapText}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div class="mt-3 p-3 bg-slate-50 rounded-xl">
-                                <p class="text-[11px] font-medium text-slate-600 leading-relaxed break-keep">
-                                    ${data.analysis.summary}
-                                </p>
+                                
+                                <div class="flex justify-between items-center pt-2">
+                                    <span class="text-xs font-bold text-slate-500">매수 매력도</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-black text-slate-800">${data.score}점</span>
+                                        <span class="px-2 py-0.5 border rounded text-[10px] font-black tracking-wide ${getGradeColor(data.grade)}">${data.grade}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 p-3 bg-slate-50 rounded-xl">
+                                    <p class="text-[11px] font-medium text-slate-600 leading-relaxed break-keep">
+                                        ${data.analysis.summary}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     `;
-                } catch (e) {
-                    cardDiv.innerHTML = `<div class="text-center text-xs text-rose-500 font-bold py-10">데이터 로드 실패</div>`;
                 }
+
+                container.innerHTML = cardsHtml;
+
+            } catch (e) {
+                container.innerHTML = `<div class="col-span-full text-center py-8 text-rose-500 font-bold">분석 데이터 로드에 실패했습니다.</div>`;
             }
         }
     </script>
