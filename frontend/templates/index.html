@@ -670,36 +670,36 @@ function toggleWatchlistInputs() {
     const nameInput = document.getElementById('re-name');
     const areaSelect = document.getElementById('re-area');
     const areaWrapper = document.getElementById('re-area-wrapper');
-    
+    const priceWrapper = document.getElementById('re-price-result-wrapper');
+
     nameInput.value = cleanName;
     document.getElementById('re-search-dropdown').classList.add('hidden');
     nameInput.dataset.complexNo = complexNo;
-    
+
     if (areaWrapper) areaWrapper.classList.remove('hidden');
-    areaSelect.innerHTML = '<option value="">국토부 정식 API 연동 중...</option>';
+    areaSelect.innerHTML = '<option value="">국토부 실거래 평형 조회 중...</option>';
 
     try {
         const bjdCode = nameInput.dataset.bjdCode || '';
         const response = await fetch(`/api/real-estate/areas?bjd_code=${bjdCode}&name=${encodeURIComponent(cleanName)}`);
-        
-        // 💡 백엔드가 뱉은 순정 배열([84.02, 106.98, ...])을 정직하게 수신
         const areas = await response.json();
-        
-        console.log("=== 📋 국토부 정식 API 연동 결과 ===");
-        console.log("파싱된 평형 리스트:", areas);
-        console.log("=========================================");
 
         if (!areas || areas.length === 0) {
             areaSelect.innerHTML = '<option value="">등록된 실거래 평형 없음</option>';
             return;
         }
-        
-        // 드롭다운 마크업 완벽 매핑
+
         areaSelect.innerHTML = areas.map(area => `
             <option value="${area}">${area} ㎡</option>
         `).join('');
+
+        // 💡 [수술 4 핵심] 드롭다운 첫 번째 항목 선택 즉시 시세 자동 조회
+        if (areas.length > 0) {
+            fetchAreaPrice(bjdCode, cleanName, areas[0]);
+        }
+
     } catch (e) {
-        console.error("평형 스펙 연동 실패:", e);
+        console.error("평형 연동 실패:", e);
         areaSelect.innerHTML = '<option value="">데이터 로드 실패</option>';
     }
 }
@@ -799,12 +799,11 @@ function toggleWatchlistInputs() {
         async function fetchAreaPrice(bjdCode, aptName, area) {
     const priceWrapper = document.getElementById('re-price-result-wrapper');
     const priceEl = document.getElementById('re-price-result');
-    
+
     if (!bjdCode || !aptName || !area) return;
-    
-    // 💡 관심 매물 여부 상관없이 뷰(View)는 무조건 열어서 국토부 시세를 띄워줍니다.
-    if(priceWrapper) priceWrapper.classList.remove('hidden');
-    if(priceEl) {
+
+    if (priceWrapper) priceWrapper.classList.remove('hidden');
+    if (priceEl) {
         priceEl.innerText = '⏳ 국토부 실거래가 조회 중...';
         priceEl.className = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-500';
     }
@@ -814,36 +813,34 @@ function toggleWatchlistInputs() {
         const data = await res.json();
 
         if (data.found && data.price > 0) {
-            if(priceEl) {
+            if (priceEl) {
                 priceEl.innerText = '₩' + data.price.toLocaleString() + '  (' + data.deal_date + ' 거래)';
                 priceEl.className = 'w-full bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm font-bold text-emerald-700';
             }
 
-            // 💡 [UX 자동 입력 + 폼 잠금(수정 불가) 처리]
+            // 💡 [수술 5 핵심] 현재 시세 입력창 자동 입력 + 잠금 처리
             const currPriceInput = document.getElementById('re-curr-price');
-            const isWatchlist = document.getElementById('re-is-watchlist');
-            
-            // 관심 매물이 아니면서, 현재 시세 입력창이 화면에 존재할 때만
-            if (currPriceInput && isWatchlist && !isWatchlist.checked) {
-                // 1. 시세 자동 입력
-                currPriceInput.value = data.price.toLocaleString(); 
-                
-                // 2. CTO님 요청사항: 사용자가 직접 타이핑해서 수정하지 못하도록 강제 잠금(ReadOnly)
-                currPriceInput.readOnly = true; 
-                currPriceInput.classList.add('bg-gray-100', 'cursor-not-allowed');
-                
-                // 3. 브라우저 갱신 이벤트
-                currPriceInput.dispatchEvent(new Event('input', { bubbles: true }));
-                currPriceInput.dispatchEvent(new Event('change', { bubbles: true }));
+            if (currPriceInput) {
+                currPriceInput.value = data.price;  // 숫자 그대로 삽입
+                currPriceInput.readOnly = true;
+                currPriceInput.style.backgroundColor = '#f1f5f9';
+                currPriceInput.style.cursor = 'not-allowed';
             }
         } else {
-            if(priceEl) {
+            if (priceEl) {
                 priceEl.innerText = '최근 12개월 내 실거래 데이터가 없습니다.';
                 priceEl.className = 'w-full bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm font-bold text-amber-600';
             }
+            // 💡 데이터 없으면 입력창 잠금 해제 (직접 입력 허용)
+            const currPriceInput = document.getElementById('re-curr-price');
+            if (currPriceInput) {
+                currPriceInput.readOnly = false;
+                currPriceInput.style.backgroundColor = '';
+                currPriceInput.style.cursor = '';
+            }
         }
     } catch (e) {
-        if(priceEl) {
+        if (priceEl) {
             priceEl.innerText = '시세 조회 중 오류가 발생했습니다.';
             priceEl.className = 'w-full bg-rose-50 border border-rose-200 rounded-xl px-4 py-2.5 text-sm font-bold text-rose-600';
         }
@@ -895,7 +892,7 @@ function handleAreaChange() {
     const target_price = is_watchlist ? parseFloat(document.getElementById('re-target-price').value) || 0 : 0;
     let deposit = parseFloat(document.getElementById('re-deposit').value) || 0;
     let purchase_price = parseFloat(document.getElementById('re-pur-price').value) || 0;
-    let current_price = parseFloat(document.getElementById('re-curr-price').value) || 0;
+    let current_price = parseFloat((document.getElementById('re-curr-price').value || '0').replace(/,/g, '')) || 0;
     const debt = parseFloat(document.getElementById('re-debt').value) || 0;
     const monthly_rent = parseFloat(document.getElementById('re-rent').value) || 0;
 
@@ -961,7 +958,8 @@ function handleAreaChange() {
                 tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-slate-400">등록된 실물 자산 내역이 없습니다.</td></tr>`; return;
             }
             const typeMap = { 'APT': '아파트', 'OFFICETEL': '오피스텔', 'BUILDING': '상가빌딩' };
-            const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대' };
+            // 기존 코드를 찾아 아래로 교체
+            const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대', 'WATCHLIST': '관심매물' };
 
             tbody.innerHTML = assets.map(item => {
                 let p_price = `₩${item.purchase_price.toLocaleString()}`;
