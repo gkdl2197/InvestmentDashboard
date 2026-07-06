@@ -296,21 +296,19 @@
                 </div>
                 <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-semibold text-xs tracking-wider uppercase whitespace-nowrap">
-                                <th class="py-3 px-6">매물/거주지명</th>
-                                <th class="py-3 px-6">유형</th>
-                                <th class="py-3 px-6">보유/거주 형태</th>
-                                <th class="py-3 px-6 text-right">최초 매입가</th>
-                                <th class="py-3 px-6 text-right text-slate-700">최근 실거래가</th>
-                                <th class="py-3 px-6 text-right text-amber-600">내 전세 보증금</th>
-                                <th class="py-3 px-6 text-right">대출금</th>
-                                <th class="py-3 px-6 text-right">임대 보증금(받은돈)</th>
-                                <th class="py-3 px-6 text-right">월세 수입</th>
-                                <th class="py-3 px-6 text-right">평가 손익</th>
-                                <th class="py-3 px-6 text-center">관리</th>
-                            </tr>
-                        </thead>
+                        <thead class="bg-slate-50 border-b border-slate-200">
+    <tr>
+        <th class="px-4 py-3 text-left text-xs font-bold text-slate-500 whitespace-nowrap">매물/거주지명</th>
+        <th class="px-4 py-3 text-center text-xs font-bold text-slate-500 whitespace-nowrap">유형</th>
+        <th class="px-4 py-3 text-center text-xs font-bold text-slate-500 whitespace-nowrap">보유/거주 형태</th>
+        <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">매입가 / 내 보증금</th>
+        <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">현재 시세</th>
+        <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">대출금</th>
+        <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">임대 현황(보/월)</th>
+        <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">평가 손익</th>
+        <th class="px-4 py-3 text-center text-xs font-bold text-slate-500 whitespace-nowrap">관리</th>
+    </tr>
+</thead>
                         <tbody id="re-table-body" class="text-sm text-slate-600 divide-y divide-slate-100"></tbody>
                     </table>
                 </div>
@@ -952,47 +950,70 @@ function handleAreaChange() {
             fetchRealEstateData();
         }
 
-        function renderRealEstateTable(assets) {
-            const tbody = document.getElementById('re-table-body');
-            if (!assets || assets.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-slate-400">등록된 실물 자산 내역이 없습니다.</td></tr>`; return;
-            }
-            const typeMap = { 'APT': '아파트', 'OFFICETEL': '오피스텔', 'BUILDING': '상가빌딩' };
-            // 기존 코드를 찾아 아래로 교체
-            const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대', 'WATCHLIST': '관심매물' };
+        // ✅ 실물 부동산 테이블 동적 렌더링 (병합 최적화 버전)
+function renderRealEstateTable(holdingAssets) {
+    const tbody = document.getElementById('re-table-body');
+    if (!tbody) return;
 
-            tbody.innerHTML = assets.map(item => {
-                let p_price = `₩${item.purchase_price.toLocaleString()}`;
-                let m_price = "-"; let my_dep = "-"; let t_dep = "₩0"; let rent = "₩0";
-                let displayProfit = item.current_price - item.purchase_price;
+    if (!holdingAssets || holdingAssets.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-500 font-medium">등록된 부동산 자산이 없습니다.</td></tr>';
+        return;
+    }
 
-                if (item.holding_type === 'TENANT_LEASE') {
-                    p_price = "-"; m_price = "-"; my_dep = `₩${item.monthly_rent.toLocaleString()}`; t_dep = "-"; rent = "-"; displayProfit = 0;
-                } else if (item.holding_type === 'LEASE') {
-                    m_price = `₩${item.current_price.toLocaleString()}`; my_dep = "-"; t_dep = `₩${item.monthly_rent.toLocaleString()}`;
-                } else {
-                    m_price = `₩${item.current_price.toLocaleString()}`; my_dep = "-";
-                    if (item.holding_type === 'MONTHLY') rent = `₩${item.monthly_rent.toLocaleString()}`;
-                }
-                const pClass = displayProfit > 0 ? 'text-rose-600 font-medium' : displayProfit < 0 ? 'text-blue-600 font-medium' : 'text-slate-400';
-                return `
-                    <tr class="hover:bg-slate-50/80 transition whitespace-nowrap">
-                        <td class="py-3.5 px-6 font-semibold text-slate-800">${item.name}</td>
-                        <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-slate-100 rounded text-xs">${typeMap[item.estate_type] || item.estate_type}</span></td>
-                        <td class="py-3.5 px-6"><span class="px-2 py-0.5 bg-indigo-50 rounded text-xs text-indigo-600">${holdMap[item.holding_type] || item.holding_type}</span></td>
-                        <td class="py-3.5 px-6 text-right text-slate-400">${p_price}</td>
-                        <td class="py-3.5 px-6 text-right font-semibold">${m_price}</td>
-                        <td class="py-3.5 px-6 text-right font-bold text-amber-600">${my_dep}</td>
-                        <td class="py-3.5 px-6 text-right text-rose-500">₩${item.debt.toLocaleString()}</td>
-                        <td class="py-3.5 px-6 text-right text-slate-400">${t_dep}</td>
-                        <td class="py-3.5 px-6 text-right text-emerald-600">₩${item.monthly_rent.toLocaleString()}</td>
-                        <td class="py-3.5 px-6 text-right ${pClass}">${displayProfit===0 ? '-' : (displayProfit>0 ? '+':'') + '₩'+displayProfit.toLocaleString()}</td>
-                        <td class="py-3.5 px-6 text-center"><button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button></td>
-                    </tr>
-                `;
-            }).join('');
+    const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대', 'WATCHLIST': '관심매물' };
+    const typeMap = { 'APT': '아파트', 'OFFICETEL': '오피스텔', 'BUILDING': '상가/빌딩' };
+
+    tbody.innerHTML = holdingAssets.map(item => {
+        const hType = item.holding_type;
+        
+        // 💡 1. [자가 vs 전세 스위칭] 매입가 or 내 전세 보증금
+        let investValue = '-';
+        if (hType === 'TENANT_LEASE') {
+            // 전세 거주일 때는 '내 전세 보증금'을 주황색으로 강조하여 표기
+            investValue = item.deposit > 0 ? `<span class="text-amber-600 font-bold">₩${item.deposit.toLocaleString()}</span>` : '-';
+        } else {
+            // 그 외(자가 등)일 때는 '최초 매입가' 표기
+            investValue = item.purchase_price > 0 ? `₩${item.purchase_price.toLocaleString()}` : '-';
         }
 
+        // 💡 2. [임대 수익 날림] 갭투자/월세 모드일 때만 표기, 전세/자가일 때는 쿨하게 '-'
+        let leaseValue = '-';
+        if (hType === 'LEASE' || hType === 'MONTHLY') {
+            const dep = item.deposit > 0 ? `보: ₩${item.deposit.toLocaleString()}` : '';
+            const rent = item.monthly_rent > 0 ? `월: ₩${item.monthly_rent.toLocaleString()}` : '';
+            leaseValue = [dep, rent].filter(Boolean).join('<br>') || '-';
+        }
+
+        // 💡 3. 평가 손익 (자가/갭투자일때만 노출)
+        let pnlText = '-';
+        if ((hType === 'OWN' || hType === 'LEASE') && item.purchase_price > 0 && item.current_price > 0) {
+            const diff = item.current_price - item.purchase_price;
+            const sign = diff > 0 ? '+' : '';
+            const color = diff > 0 ? 'text-rose-500' : (diff < 0 ? 'text-blue-500' : 'text-slate-500');
+            pnlText = `<span class="${color} font-bold">${sign}₩${diff.toLocaleString()}</span>`;
+        }
+
+        return `
+            <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                <td class="px-4 py-3 text-sm font-bold text-slate-800 whitespace-nowrap">${item.name}</td>
+                <td class="px-4 py-3 text-xs text-center"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md">${typeMap[item.estate_type] || item.estate_type}</span></td>
+                <td class="px-4 py-3 text-xs text-center"><span class="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md font-bold">${holdMap[hType] || hType}</span></td>
+                
+                <td class="px-4 py-3 text-sm text-right font-medium text-slate-600 whitespace-nowrap">${investValue}</td>
+                <td class="px-4 py-3 text-sm text-right font-bold text-slate-800 whitespace-nowrap">${item.current_price > 0 ? `₩${item.current_price.toLocaleString()}` : '-'}</td>
+                <td class="px-4 py-3 text-sm text-right font-medium text-rose-500 whitespace-nowrap">${item.debt > 0 ? `₩${item.debt.toLocaleString()}` : '-'}</td>
+                <td class="px-4 py-3 text-xs text-right font-medium text-emerald-600 whitespace-nowrap">${leaseValue}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">${pnlText}</td>
+                
+                <td class="px-4 py-3 text-center">
+                    <button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-500 transition-colors">
+                        <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
         function renderWatchlistTable(assets) {
             const tbody = document.getElementById('re-watchlist-body');
             if(!assets || assets.length === 0) {
