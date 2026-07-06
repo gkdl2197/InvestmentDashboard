@@ -14,7 +14,9 @@ from backend.app.services.kr_stock import KrStockService
 from backend.app.services.us_stock import UsStockService
 from backend.app.services.exchange_rate import ExchangeRateService
 
-load_dotenv()
+# 💡 프로젝트 루트 .env 명시적 로드 (GEMINI_API_KEY 등 환경변수 누락 방지)
+_env_path = os.path.join(os.path.dirname(__file__), '../../../.env')
+load_dotenv(dotenv_path=_env_path, override=True)
 
 api_blueprint = Blueprint("api", __name__)
 
@@ -738,10 +740,6 @@ def analyze_real_estate():
         price_gap = target_price - estimated_price if target_price else 0
         
         # 4. Gemini API를 통한 동적 AI 브리핑 생성
-        import os
-        import requests
-        import json
-
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
             gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"

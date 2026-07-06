@@ -338,6 +338,7 @@
         let selectedStock = null;
         let globalPortfolioData = null;
         let currentMainTab = 'STOCK';
+        let watchListLoaded = false; // 💡 관심부동산 카드 최초 1회 렌더링 완료 플래그
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchPortfolioData();
@@ -780,7 +781,10 @@ function toggleWatchlistInputs() {
                 document.getElementById('re-net-worth').innerText = `₩${final_net_worth.toLocaleString()}`;
 
                 renderRealEstateTable(raw_holding_assets);
-                renderWatchListCards(data.watch_assets || []);
+                // 💡 최초 1회만 AI 분석 카드 렌더링 (이후 폴링 시 재렌더링 차단)
+                if (!watchListLoaded) {
+                    renderWatchListCards(data.watch_assets || []);
+                }
             } catch (e) { console.error("부동산 동기화 예외", e); }
         }
 
@@ -930,6 +934,7 @@ function handleAreaChange() {
             if (document.getElementById('re-target-price')) document.getElementById('re-target-price').value = '';
             
             toggleWatchlistInputs();
+            watchListLoaded = false; // 💡 저장 시 플래그 초기화 → 새 카드 분석 재시작
             fetchRealEstateData();
         }
     } catch (e) { alert("저장 실패"); }
@@ -938,6 +943,7 @@ function handleAreaChange() {
         async function deleteRealEstate(id) {
             if (!confirm("해당 부동산 내역을 삭제하시겠습니까?")) return;
             await fetch('/api/real-estate/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'DELETE', id }) });
+            watchListLoaded = false; // 💡 삭제 시 플래그 초기화 → 남은 카드 재분석
             fetchRealEstateData();
         }
 
@@ -1132,6 +1138,7 @@ function renderRealEstateTable(holdingAssets) {
                 }
 
                 container.innerHTML = cardsHtml;
+                watchListLoaded = true; // 💡 렌더링 완료 플래그 설정 → 이후 15초 폴링 시 재렌더링 차단
 
             } catch (e) {
                 container.innerHTML = `<div class="col-span-full text-center py-8 text-rose-500 font-bold">분석 데이터 로드에 실패했습니다.</div>`;
