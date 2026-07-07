@@ -30,7 +30,6 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     <button class="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition">
-                        <i class="fa-regular fa-bell text-lg"></i>
                     </button>
                     <div class="h-8 w-px bg-slate-200"></div>
                     <div class="flex items-center space-x-2">
@@ -302,7 +301,7 @@
         <th class="px-4 py-3 text-center text-xs font-bold text-slate-500 whitespace-nowrap">유형</th>
         <th class="px-4 py-3 text-center text-xs font-bold text-slate-500 whitespace-nowrap">보유/거주 형태</th>
         <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">매입가 / 내 보증금</th>
-        <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">현재 시세</th>
+        <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">최근 추정 시세</th>
         <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">대출금</th>
         <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">임대 현황(보/월)</th>
         <th class="px-4 py-3 text-right text-xs font-bold text-slate-500 whitespace-nowrap">평가 손익</th>
@@ -947,8 +946,7 @@ function handleAreaChange() {
             fetchRealEstateData();
         }
 
-        // ✅ 실물 부동산 테이블 동적 렌더링 (병합 최적화 버전)
-async function renderRealEstateTable(holdingAssets) {
+        async function renderRealEstateTable(holdingAssets) {
     const tbody = document.getElementById('re-table-body');
     if (!tbody) return;
 
@@ -960,52 +958,40 @@ async function renderRealEstateTable(holdingAssets) {
     const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대', 'WATCHLIST': '관심매물' };
     const typeMap = { 'APT': '아파트', 'OFFICETEL': '오피스텔', 'BUILDING': '상가/빌딩' };
 
-    // 💡 안전한 숫자 파싱 함수
+    // 💡 [초강력 숫자 파싱] 문자열에 ₩, 콤마 등이 섞여 있어도 순수 숫자만 추출 (NaN 방지)
     const parseNum = (val) => {
         if (!val) return 0;
         if (typeof val === 'number') return val;
-        return parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
+        const cleaned = String(val).replace(/[^0-9.]/g, '');
+        return parseFloat(cleaned) || 0;
     };
 
-    // 💡 금액 가독성을 위한 만원/억 표기 함수
-    const formatKoreanPrice = (num) => {
-        if (!num || num === 0) return "-";
-        const eok = Math.floor(num / 100000000);
-        const man = Math.floor((num % 100000000) / 10000);
-        let result = '';
-        if (eok > 0) result += `${eok}억 `;
-        if (man > 0) result += `${man.toLocaleString()}만`;
-        return result ? `${result}원` : "0원";
-    };
-
-    // 💡 [핵심 - ① & ②] 비동기 데이터 맵핑 및 전세 보증금 필드 역추적 파이프라인
     const renderPromises = holdingAssets.map(async (item) => {
         const hType = String(item.holding_type || '').toUpperCase();
         
-        // ① [현재 시세 연동]: 관심부동산 카드와 동일한 백엔드 API를 호출하여 실시간 시세를 동기화
+        // 1. [현재 시세 연동]: 관심부동산 카드와 동일하게 백엔드 실시간 시세 매핑
         let liveCurrentPrice = parseNum(item.current_price);
         if (item.complex_code && item.area) {
             try {
                 const res = await fetch(`/api/real-estate/analysis?aptCode=${item.complex_code}&area=${item.area}&targetPrice=0`);
                 const data = await res.json();
                 if (data.status === "success" && data.estimated_price) {
-                    liveCurrentPrice = data.estimated_price; // 관심부동산의 '최근 시세'와 100% 동일값 연동
+                    liveCurrentPrice = data.estimated_price;
                 }
             } catch (e) {
                 console.error(`${item.name} 실시간 시세 연동 실패:`, e);
             }
         }
 
-        // ② [전세 등록 데이터 안전 보정]: 
-        // 입력 폼 파싱값(tenant_deposit, deposit_amount 등) 모든 필드 백업 스캐닝
-        const depositVal = parseNum(item.deposit || item.deposit_amount || item.tenant_deposit || item.deposit_amt);
+        // 2. [전세 데이터 무조건 표출 가드]
+        // 총액 컴포넌트에서 사용하는 모든 후보 필드(deposit, tenant_deposit 등)를 전부 스캐닝합니다.
+        const depositVal = parseNum(item.deposit || item.deposit_amount || item.tenant_deposit || item.deposit_amt || item.purchase_price);
         const purchaseVal = parseNum(item.purchase_price || item.buy_price);
         const debtVal = parseNum(item.debt || item.loan_amount || item.loan);
 
-        // 자가 vs 전세 매입가/보증금 스위칭 로직
+        // 💡 [핵심 보정] 보유 형태가 TENANT_LEASE이거나, 혹은 매입가는 없는데 보증금 데이터가 잡히면 무조건 '전세 거주' 인터페이스로 강제 강결합
         let investValue = '-';
-        if (hType.includes('TENANT') || hType === 'TENANT_LEASE' || (!purchaseVal && depositVal > 0)) {
-            // 전세 거주일 때는 보증금을 주황색 강조
+        if (hType.includes('TENANT') || hType === 'TENANT_LEASE' || (purchaseVal === 0 && depositVal > 0)) {
             investValue = depositVal > 0 ? `<span class="text-amber-600 font-bold">₩${depositVal.toLocaleString()}</span>` : '-';
         } else {
             investValue = purchaseVal > 0 ? `₩${purchaseVal.toLocaleString()}` : '-';
@@ -1019,7 +1005,7 @@ async function renderRealEstateTable(holdingAssets) {
             leaseValue = [dep, rent].filter(Boolean).join('<br>') || '-';
         }
 
-        // 평가 손익 (자가 또는 갭투자일 때만 작동)
+        // 평가 손익 (자가/갭투자 전용)
         let pnlText = '-';
         if ((hType === 'OWN' || hType === 'LEASE') && purchaseVal > 0 && liveCurrentPrice > 0) {
             const diff = liveCurrentPrice - purchaseVal;
@@ -1028,7 +1014,9 @@ async function renderRealEstateTable(holdingAssets) {
             pnlText = `<span class="${color} font-bold">${sign}₩${diff.toLocaleString()}</span>`;
         }
 
-        const displayHoldType = holdMap[hType] || item.holding_type_display || '전세 거주';
+        // 라벨 뒤틀림 방어 예외 처리
+        const isActuallyTenant = hType.includes('TENANT') || (purchaseVal === 0 && depositVal > 0);
+        const displayHoldType = isActuallyTenant ? '전세 거주' : (holdMap[hType] || item.holding_type_display || '자가실거주');
 
         return `
             <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors whitespace-nowrap">
@@ -1051,7 +1039,6 @@ async function renderRealEstateTable(holdingAssets) {
         `;
     });
 
-    // 모든 자산의 시세 API 비동기 조회가 끝난 후 한 번에 스크린 랜더링 (화면 깜빡임 완전 방지)
     const rows = await Promise.all(renderPromises);
     tbody.innerHTML = rows.join('');
 }
@@ -1138,7 +1125,7 @@ async function renderRealEstateTable(holdingAssets) {
                             <span class="font-mono font-bold text-slate-700">${formatKoreanPrice(livePrice)}</span>
                         </div>
                         <div class="flex justify-between items-center text-sm border-t border-slate-200/50 pt-2.5">
-                            <span class="text-slate-600 font-extrabold">최근 시세</span>
+                            <span class="text-slate-600 font-extrabold">최근 추정 시세</span>
                             <span class="font-mono font-black text-indigo-600">${formatKoreanPrice(estPrice)}</span>
                         </div>
                         <div class="flex justify-between items-center text-xs border-t border-slate-200/50 pt-2.5">
