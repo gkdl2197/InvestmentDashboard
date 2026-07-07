@@ -68,7 +68,7 @@ def get_molit_recent_price(bjd_code: str, apt_name: str):
             body = data.get("response", {}).get("body", {})
             total_count = body.get("totalCount", 0)
             items = body.get("items", {})
-
+        
             print(f"[MOLIT DEBUG] {apt_name} {deal_ymd} → totalCount={total_count}, items_type={type(items).__name__}, items_preview={str(items)[:300]}")
 
             if not items or items == "":
@@ -623,7 +623,7 @@ def calculate_buy_score(latest_price, estimated_price, target_price):
         
     return min(100, max(0, score)), grade
 
-# 🚀 [V2.0] 관심부동산 AI 분석 라우터
+# 🚀 [V2.0 고도화] 관심부동산 핵심 지표 분석 라우터 (팩트 중심 경량화 버전)
 @api_blueprint.route("/real-estate/analysis", methods=["GET"])
 def analyze_real_estate():
     try:
@@ -662,7 +662,6 @@ def analyze_real_estate():
                 from datetime import datetime, timedelta
 
                 now = datetime.now()
-                # 최근 6개월 데이터를 순차적으로 뒤짐 (회의록 스펙 반영 및 속도 최적화)
                 months_to_try = [(now - timedelta(days=30 * i)).strftime("%Y%m") for i in range(0, 6)]
                 
                 noise_words = ["아파트", "주상복합", "단지", " "]
@@ -714,7 +713,6 @@ def analyze_real_estate():
                     except Exception:
                         continue
                     
-                    # 속도 향상을 위해 트랜잭션이 3개 이상 모이면 과거 데이터 조회 생략 (최적화)
                     if len(transactions) >= 3:
                         break
 
@@ -726,7 +724,7 @@ def analyze_real_estate():
                 {"price": 4490000000, "date": "2026-02-15"}
             ]
 
-        # 실거래 데이터 정렬 (최신 거래가 index 0)
+        # 실거래 데이터 정렬 및 시장 추정가 계산
         transactions.sort(key=lambda x: x["date"], reverse=True)
         latest_tx = transactions[0]
         latest_price = latest_tx["price"]
@@ -735,63 +733,21 @@ def analyze_real_estate():
         avg_price = sum(t["price"] for t in transactions) / len(transactions)
         estimated_price = avg_price * market_index_factor()
         
-        confidence = calculate_confidence(transactions, latest_date)
-        score, grade = calculate_buy_score(latest_price, estimated_price, target_price)
+        # 목표가 격차 계산 (목표가까지 남은 금액 차이)
         price_gap = target_price - estimated_price if target_price else 0
         
-        # 4. Gemini API를 통한 동적 AI 브리핑 생성
-        from dotenv import load_dotenv, find_dotenv
-        load_dotenv(find_dotenv(), override=True)
+        # ❌ [제거] 매수 매력도 점수/등급(calculate_buy_score) 로직 삭제
+        # ❌ [제거] dotenv 로드 및 Gemini API 호출 무거운 로직 완전히 도려냄
 
-        api_key = os.getenv("GEMINI_API_KEY")
-        print(f"🔑 [디버그] 읽어온 API KEY: {api_key[:10]}... (키가 보이면 정상!)")
-        if api_key:
-            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-            
-            prompt = (
-                f"너는 부동산 투자 분석 AI 에이전트이다. 다음 팩트 데이터를 바탕으로 "
-                f"투자 조언 및 매수 타이밍 브리핑을 딱 3문장 이내로 직관적이고 전문적으로 작성하라.\n\n"
-                f"- 최근 실거래가: {latest_price / 100000000:.1f}억원\n"
-                f"- 시장 추정가 (최근 6~12개월 평균): {estimated_price / 100000000:.1f}억원\n"
-                f"- 내 매수 목표가: {target_price / 100000000:.1f}억원\n"
-                f"- 매수 등급 및 점수: {grade} ({score}점)\n"
-                f"- 분석 대상 거래 수: {len(transactions)}건\n\n"
-                f"출력 시 반드시 존댓말(해요체 또는 하십시오체)을 사용하고, 다른 서론이나 설명 없이 분석 본문만 딱 3문장 이내로 출력하라."
-            )
-            
-            headers = {"Content-Type": "application/json"}
-            payload = {
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "maxOutputTokens": 250,
-                    "temperature": 0.3
-                }
-            }
-            
-            try:
-                import requests
-                response = requests.post(gemini_url, headers=headers, json=payload, timeout=6)
-                if response.status_code == 200:
-                    res_json = response.json()
-                    ai_summary = res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
-                else:
-                    ai_summary = f"API 연동 오류 (HTTP {response.status_code}): 실거래 데이터와 목표가 기준 매력도는 {grade}({score}점)입니다. 추정가 대비 가격 동향을 확인하십시오."
-            except Exception as e:
-                print(f"❌ [Gemini API Exception] {e}")
-                ai_summary = f"AI 브리핑 생성 장애: 실거래가 기준 매수 매력도는 {grade}({score}점)입니다. 최근 추정가는 {estimated_price / 100000000:.1f}억원입니다."
-        else:
-            ai_summary = f"최근 실거래 분석 결과 매수 등급은 {grade} ({score}점)입니다. 상세 AI 브리핑을 보시려면 프로젝트 환경 설정(.env)에 GEMINI_API_KEY를 등록해 주십시오."
-
+        # 🚀 오직 팩트 지표(실거래가, 추정가, 목표가, 격차)만 가볍게 반환
         return jsonify({
+            "status": "success",
             "latest_price": latest_price,
             "latest_date": latest_date,
             "estimated_price": round(estimated_price),
-            "confidence": confidence,
-            "score": score,
-            "grade": grade,
+            "target_price": target_price,
             "price_gap": price_gap,
-            "trend": "UP",
-            "analysis": {"transaction_count": len(transactions), "summary": ai_summary}
+            "transaction_count": len(transactions)
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
