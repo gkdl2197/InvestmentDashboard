@@ -948,7 +948,7 @@ function handleAreaChange() {
         }
 
         // ✅ 실물 부동산 테이블 동적 렌더링 (병합 최적화 버전)
-function renderRealEstateTable(holdingAssets) {
+async function renderRealEstateTable(holdingAssets) {
     const tbody = document.getElementById('re-table-body');
     if (!tbody) return;
 
@@ -960,31 +960,58 @@ function renderRealEstateTable(holdingAssets) {
     const holdMap = { 'OWN': '자가실거주', 'TENANT_LEASE': '전세 거주', 'LEASE': '갭투자(집주인)', 'MONTHLY': '월세임대', 'WATCHLIST': '관심매물' };
     const typeMap = { 'APT': '아파트', 'OFFICETEL': '오피스텔', 'BUILDING': '상가/빌딩' };
 
-    tbody.innerHTML = holdingAssets.map(item => {
-        const hType = item.holding_type;
+    // 💡 안전한 숫자 파싱 함수
+    const parseNum = (val) => {
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        return parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
+    };
+
+    // 💡 금액 가독성을 위한 만원/억 표기 함수
+    const formatKoreanPrice = (num) => {
+        if (!num || num === 0) return "-";
+        const eok = Math.floor(num / 100000000);
+        const man = Math.floor((num % 100000000) / 10000);
+        let result = '';
+        if (eok > 0) result += `${eok}억 `;
+        if (man > 0) result += `${man.toLocaleString()}만`;
+        return result ? `${result}원` : "0원";
+    };
+
+    // 💡 [핵심 - ① & ②] 비동기 데이터 맵핑 및 전세 보증금 필드 역추적 파이프라인
+    const renderPromises = holdingAssets.map(async (item) => {
+        const hType = String(item.holding_type || '').toUpperCase();
         
-        // 💡 [데이터 유연성 가드] 문자열 제거 및 가능한 모든 API 백엔드 필드 키를 스캐닝합니다.
-        const parseNum = (val) => {
-            if (!val) return 0;
-            if (typeof val === 'number') return val;
-            return parseFloat(String(val).replace(/,/g, '')) || 0;
-        };
+        // ① [현재 시세 연동]: 관심부동산 카드와 동일한 백엔드 API를 호출하여 실시간 시세를 동기화
+        let liveCurrentPrice = parseNum(item.current_price);
+        if (item.complex_code && item.area) {
+            try {
+                const res = await fetch(`/api/real-estate/analysis?aptCode=${item.complex_code}&area=${item.area}&targetPrice=0`);
+                const data = await res.json();
+                if (data.status === "success" && data.estimated_price) {
+                    liveCurrentPrice = data.estimated_price; // 관심부동산의 '최근 시세'와 100% 동일값 연동
+                }
+            } catch (e) {
+                console.error(`${item.name} 실시간 시세 연동 실패:`, e);
+            }
+        }
 
-        // 전세 보증금 필드 후보 매핑 파이프라인
-        const depositVal = parseNum(item.deposit || item.deposit_amount || item.deposit_amt || item.purchase_price);
-        const purchaseVal = parseNum(item.purchase_price);
-        const currentVal = parseNum(item.current_price || item.current_amt || item.price);
-        const debtVal = parseNum(item.debt || item.loan_amount || item.loan_amt || item.loan);
+        // ② [전세 등록 데이터 안전 보정]: 
+        // 입력 폼 파싱값(tenant_deposit, deposit_amount 등) 모든 필드 백업 스캐닝
+        const depositVal = parseNum(item.deposit || item.deposit_amount || item.tenant_deposit || item.deposit_amt);
+        const purchaseVal = parseNum(item.purchase_price || item.buy_price);
+        const debtVal = parseNum(item.debt || item.loan_amount || item.loan);
 
-        // 💡 1. [자가 vs 전세 스위칭] 매입가 or 내 전세 보증금
+        // 자가 vs 전세 매입가/보증금 스위칭 로직
         let investValue = '-';
-        if (hType === 'TENANT_LEASE' || item.holding_type_display?.includes('전세')) {
+        if (hType.includes('TENANT') || hType === 'TENANT_LEASE' || (!purchaseVal && depositVal > 0)) {
+            // 전세 거주일 때는 보증금을 주황색 강조
             investValue = depositVal > 0 ? `<span class="text-amber-600 font-bold">₩${depositVal.toLocaleString()}</span>` : '-';
         } else {
             investValue = purchaseVal > 0 ? `₩${purchaseVal.toLocaleString()}` : '-';
         }
 
-        // 💡 2. [임대 수익 날림]
+        // 임대 현황 분기 (갭투자/월세용)
         let leaseValue = '-';
         if (hType === 'LEASE' || hType === 'MONTHLY') {
             const dep = depositVal > 0 ? `보: ₩${depositVal.toLocaleString()}` : '';
@@ -992,26 +1019,28 @@ function renderRealEstateTable(holdingAssets) {
             leaseValue = [dep, rent].filter(Boolean).join('<br>') || '-';
         }
 
-        // 💡 3. 평가 손익
+        // 평가 손익 (자가 또는 갭투자일 때만 작동)
         let pnlText = '-';
-        if ((hType === 'OWN' || hType === 'LEASE') && purchaseVal > 0 && currentVal > 0) {
-            const diff = currentVal - purchaseVal;
+        if ((hType === 'OWN' || hType === 'LEASE') && purchaseVal > 0 && liveCurrentPrice > 0) {
+            const diff = liveCurrentPrice - purchaseVal;
             const sign = diff > 0 ? '+' : '';
             const color = diff > 0 ? 'text-rose-500' : (diff < 0 ? 'text-blue-500' : 'text-slate-500');
             pnlText = `<span class="${color} font-bold">${sign}₩${diff.toLocaleString()}</span>`;
         }
 
+        const displayHoldType = holdMap[hType] || item.holding_type_display || '전세 거주';
+
         return `
-            <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td class="px-4 py-3 text-sm font-bold text-slate-800 whitespace-nowrap">${item.name}</td>
-                <td class="px-4 py-3 text-xs text-center"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md">${typeMap[item.estate_type] || item.estate_type}</span></td>
-                <td class="px-4 py-3 text-xs text-center"><span class="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md font-bold">${holdMap[hType] || hType}</span></td>
+            <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors whitespace-nowrap">
+                <td class="px-4 py-3 text-sm font-bold text-slate-800">${item.name}</td>
+                <td class="px-4 py-3 text-xs text-center"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-md">${typeMap[item.estate_type] || item.estate_type || '아파트'}</span></td>
+                <td class="px-4 py-3 text-xs text-center"><span class="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md font-bold">${displayHoldType}</span></td>
                 
-                <td class="px-4 py-3 text-sm text-right font-medium text-slate-600 whitespace-nowrap">${investValue}</td>
-                <td class="px-4 py-3 text-sm text-right font-bold text-slate-800 whitespace-nowrap">${currentVal > 0 ? `₩${currentVal.toLocaleString()}` : '-'}</td>
-                <td class="px-4 py-3 text-sm text-right font-medium text-rose-500 whitespace-nowrap">${debtVal > 0 ? `₩${debtVal.toLocaleString()}` : '-'}</td>
-                <td class="px-4 py-3 text-xs text-right font-medium text-emerald-600 whitespace-nowrap">${leaseValue}</td>
-                <td class="px-4 py-3 text-right whitespace-nowrap">${pnlText}</td>
+                <td class="px-4 py-3 text-sm text-right font-medium text-slate-600">${investValue}</td>
+                <td class="px-4 py-3 text-sm text-right font-bold text-slate-800">${liveCurrentPrice > 0 ? `₩${liveCurrentPrice.toLocaleString()}` : '-'}</td>
+                <td class="px-4 py-3 text-sm text-right font-medium text-rose-500">${debtVal > 0 ? `₩${debtVal.toLocaleString()}` : '-'}</td>
+                <td class="px-4 py-3 text-xs text-right font-medium text-emerald-600">${leaseValue}</td>
+                <td class="px-4 py-3 text-sm text-right">${pnlText}</td>
                 
                 <td class="px-4 py-3 text-center">
                     <button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-500 transition-colors">
@@ -1020,7 +1049,11 @@ function renderRealEstateTable(holdingAssets) {
                 </td>
             </tr>
         `;
-    }).join('');
+    });
+
+    // 모든 자산의 시세 API 비동기 조회가 끝난 후 한 번에 스크린 랜더링 (화면 깜빡임 완전 방지)
+    const rows = await Promise.all(renderPromises);
+    tbody.innerHTML = rows.join('');
 }
 
       async function renderWatchlistTable(assets) {
@@ -1042,17 +1075,17 @@ function renderRealEstateTable(holdingAssets) {
     }
 
     // 💡 겹침 현상과 테이블 잔재를 완벽히 날려버리고 수려한 Antigravity 카드 Grid 레이아웃 세팅
-    container.innerHTML = `
-        <div class="mb-5 flex items-center justify-between">
-            <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
-                <i class="fa-solid fa-bell text-amber-500"></i>
-                관심부동산 실시간 모니터링 현황
-            </h3>
-            <span class="text-[11px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold">중개업소 실시간 최저가 기준</span>
+    // ③ 종모양 아이콘이 완전 제거된 대시보드 타이틀 구조
+        container.innerHTML = `
+    <div class="mb-5 flex items-center justify-between">
+        <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+            관심부동산 실시간 모니터링 현황
+        </h3>
+        <span class="text-[11px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold">중개업소 실시간 최저가 기준</span>
+    </div>
+    <div id="re-watchlist-card-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         </div>
-        <div id="re-watchlist-card-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            </div>
-    `;
+`;  
 
     const grid = document.getElementById('re-watchlist-card-grid');
 
