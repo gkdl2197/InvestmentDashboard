@@ -245,7 +245,7 @@
                         <input type="checkbox" id="re-is-watchlist" onchange="toggleWatchlistInputs()" class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
                         <label for="re-is-watchlist" class="text-xs font-bold text-indigo-700 cursor-pointer flex items-center space-x-1">
                             <i class="fa-solid fa-bell text-amber-500 animate-pulse"></i>
-                            <span>관심부동산 지정 (네이버 실매물 알림)</span>
+                            <span>관심부동산 지정</span>
                         </label>
                     </div>
                     
@@ -266,7 +266,7 @@
                         <input type="number" id="re-deposit" placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 focus:outline-none">
                     </div>
                     <div id="re-target-wrapper" class="hidden md:col-span-2">
-                        <label class="block text-xs font-bold text-indigo-600 mb-1.5">🔔 네이버 부동산 실매물 가격 알림 목표가 (원)</label>
+                        <label class="block text-xs font-bold text-indigo-600 mb-1.5">🔔 관심 부동산 실매물 가격 알림 목표가 (원)</label>
                         <input type="number" id="re-target-price" placeholder="네이버 중개업소 실매물이 이 가격 이하로 등록되면 즉시 알림 신호" class="w-full bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-indigo-950 focus:outline-none focus:bg-white">
                     </div>
                     <div id="re-area-wrapper" class="hidden">
@@ -318,10 +318,7 @@
                 <div class="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/30 to-white flex items-center justify-between">
                     <div class="flex items-center space-x-2">
                         <i class="fa-solid fa-bell text-amber-500 animate-bounce"></i>
-                        <h3 class="text-base font-bold text-slate-900">네이버 부동산 실제 등록 매물 실시간 모니터링 현황</h3>
                     </div>
-                    <span class="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2.5 py-1 rounded-md">중개업소 실시간 최저가 기준</span>
-                </div>
                 <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse">
                         <thead>
