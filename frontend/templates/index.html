@@ -1015,22 +1015,41 @@ function renderRealEstateTable(holdingAssets) {
     }).join('');
 }
         async function renderWatchlistTable(assets) {
-    const tbody = document.getElementById('re-watchlist-body');
-    if (!tbody) return;
+    // 💡 1. 기존 테이블 뼈대 엘리먼트 대신, 상위 컨테이너 레이아웃을 타겟팅합니다.
+    const container = document.getElementById('re-watchlist-container') || document.getElementById('re-watchlist-body')?.parentElement?.parentElement;
+    if (!container) return;
 
     if (!assets || assets.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">현재 모니터링 중인 관심 아파트 단지가 없습니다.</td></tr>`;
+        container.innerHTML = `
+            <div class="w-full p-12 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                <i class="fa-regular fa-building text-3xl mb-3 block text-slate-300"></i>
+                현재 모니터링 중인 관심 아파트 단지가 없습니다.
+            </div>`;
         return;
     }
 
-    // 💡 백엔드에서 실시간으로 분석 데이터(실거래, 추정가)를 병렬 로드
-    const renderPromises = assets.map(async (item) => {
-        let livePrice = 0;
-        let estPrice = 0;
-        let targetPrice = item.target_price || 0;
+    // 💡 2. 제목 구성 및 Antigravity 오리지널 카드들을 배치할 그리드(Grid) 뼈대 구축
+    container.innerHTML = `
+        <div class="mb-5 flex items-center justify-between">
+            <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-bell text-amber-500"></i>
+                관심부동산 실시간 모니터링 현황
+            </h3>
+            <span class="text-[11px] bg-slate-100 text-slate-500 px-2.5 py-1 rounded-md font-semibold">중개업소 실시간 최저가 기준</span>
+        </div>
+        <div id="re-watchlist-card-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            </div>
+    `;
+
+    const grid = document.getElementById('re-watchlist-card-grid');
+
+    // 💡 3. 비동기 데이터 병렬 로드 파이프라인 가동
+    const cardPromises = assets.map(async (item) => {
+        let livePrice = 0;    // 최근 실거래가
+        let estPrice = 0;     // 최근 시세 (시장 추정가)
+        let targetPrice = item.target_price || 0; // 목표 매수가
         
         try {
-            // 경량화된 백엔드 API 호출 (complex_code와 area 기준)
             const res = await fetch(`/api/real-estate/analysis?aptCode=${item.complex_code}&area=${item.area}&targetPrice=${targetPrice}`);
             const data = await res.json();
             
@@ -1042,31 +1061,63 @@ function renderRealEstateTable(holdingAssets) {
             console.error("관심종목 데이터 로드 실패:", e);
         }
 
-        // 💡 매수 타이밍 시그널 계산 (시장 추정가가 내 목표가 이하로 떨어졌을 때 활성화)
+        // 💡 4. 매수 타이밍 시그널 배지 매핑 (최근 시세가 목표 매수가 이하일 때)
         const isSignalHit = estPrice > 0 && targetPrice > 0 && estPrice <= targetPrice;
-        const badge = isSignalHit 
-            ? `<span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-bold animate-pulse"><i class="fa-solid fa-fire-flame-curved mr-1"></i> 매수 기회!</span>`
-            : `<span class="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium">추적 중</span>`;
+        const badgeElement = isSignalHit 
+            ? `<span class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-black border border-rose-100 animate-pulse flex items-center gap-1"><i class="fa-solid fa-fire-flame-curved"></i> 매수 기회!</span>`
+            : `<span class="px-2.5 py-1 bg-slate-50 text-slate-400 rounded-lg text-xs font-bold border border-slate-100">추적 중</span>`;
 
+        // 💡 5. 금액 가독성을 위한 한국형 금액 헬퍼 (예: 8억 7,600만원)
+        const formatKoreanPrice = (num) => {
+            if (!num || num === 0) return "-";
+            const eok = Math.floor(num / 100000000);
+            const man = Math.floor((num % 100000000) / 10000);
+            let result = '';
+            if (eok > 0) result += `${eok}억 `;
+            if (man > 0) result += `${man.toLocaleString()}만`;
+            return result ? `${result}원` : "0원";
+        };
+
+        // 💡 6. Antigravity의 UI 감성을 녹여낸 고해상도 카드 리턴
         return `
-            <tr class="hover:bg-slate-50 whitespace-nowrap border-b border-slate-100">
-                <td class="p-4 font-bold text-slate-800">${item.name} <span class="text-xs font-normal text-slate-400 ml-1">${item.area}㎡</span></td>
-                <td class="p-4 text-right font-mono font-bold text-slate-700">₩${livePrice.toLocaleString()}</td>
-                <td class="p-4 text-right font-mono font-black text-indigo-600">₩${estPrice.toLocaleString()}</td>
-                <td class="p-4 text-right font-mono font-medium text-slate-600">₩${targetPrice.toLocaleString()}</td>
-                <td class="p-4 text-center">${badge}</td>
-                <td class="p-4 text-center">
-                    <button onclick="deleteRealEstate('${item.id}')" class="text-slate-400 hover:text-rose-600 transition-colors">
-                        <i class="fa-solid fa-trash-can"></i>
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between relative">
+                <div>
+                    <div class="flex items-start justify-between mb-4 gap-2">
+                        <div class="overflow-hidden">
+                            <h4 class="font-extrabold text-slate-800 text-base tracking-tight truncate" title="${item.name}">${item.name}</h4>
+                            <span class="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">${item.area}㎡ 평형</span>
+                        </div>
+                        <div class="shrink-0">${badgeElement}</div>
+                    </div>
+
+                    <div class="space-y-2.5 bg-slate-50/70 p-4 rounded-xl border border-slate-100">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-500 font-bold">최근 실거래가</span>
+                            <span class="font-mono font-bold text-slate-700">${formatKoreanPrice(livePrice)}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm border-t border-slate-200/50 pt-2.5">
+                            <span class="text-slate-600 font-extrabold flex items-center gap-1">최근 시세</span>
+                            <span class="font-mono font-black text-indigo-600">${formatKoreanPrice(estPrice)}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs border-t border-slate-200/50 pt-2.5">
+                            <span class="text-slate-500 font-bold">목표 매수가</span>
+                            <span class="font-mono font-bold text-rose-600">${formatKoreanPrice(targetPrice)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end mt-4 pt-3 border-t border-slate-100">
+                    <button onclick="deleteRealEstate('${item.id}')" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
+                        <i class="fa-solid fa-trash-can text-sm"></i>
                     </button>
-                </td>
-            </tr>
+                </div>
+            </div>
         `;
     });
 
-    // 모든 비동기 API 통신이 완료되면 한 번에 렌더링 (깜빡임 차단)
-    const rows = await Promise.all(renderPromises);
-    tbody.innerHTML = rows.join('');
+    // 💡 7. Promise.all로 네트워크 통신 병목을 풀고 한방에 레이아웃 플러시 (깜빡임 완전 제거)
+    const cards = await Promise.all(cardPromises);
+    grid.innerHTML = cards.join('');
 }
     </script>
 </body>
