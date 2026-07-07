@@ -967,7 +967,7 @@ function handleAreaChange() {
     const renderPromises = holdingAssets.map(async (item) => {
         const hType = String(item.holding_type || '').toUpperCase();
         
-        // 1. [현재 시세 연동] 관심부동산 최근 시세 연동
+        // 1. [현재 시세 연동] 관심부동산 최근 시세와 100% 동일한 실시간 시세 로드
         let liveCurrentPrice = parseNum(item.current_price);
         if (item.complex_code && item.area) {
             try {
@@ -981,7 +981,7 @@ function handleAreaChange() {
             }
         }
 
-        // 2. [전세 데이터 매핑 복원] monthly_rent 컬럼에 들어간 보증금 복구
+        // 2. [전세 데이터 매핑 복원] monthly_rent 컬럼에 들어간 보증금 헷징 복구
         let depositVal = parseNum(item.deposit);
         const monthlyRentVal = parseNum(item.monthly_rent);
         
@@ -1000,7 +1000,7 @@ function handleAreaChange() {
             investValue = purchaseVal > 0 ? `₩${purchaseVal.toLocaleString()}` : '-';
         }
 
-        // 3. 임대 현황 (전세 거주일 때는 '-' 마스킹)
+        // 3. 임대 현황 (전세 거주일 때는 임대수익이 없으므로 '-' 마스킹)
         let leaseValue = '-';
         if (hType === 'LEASE' || hType === 'MONTHLY') {
             const dep = depositVal > 0 ? `보: ₩${depositVal.toLocaleString()}` : '';
@@ -1008,9 +1008,10 @@ function handleAreaChange() {
             leaseValue = [dep, rent].filter(Boolean).join('<br>') || '-';
         }
 
-        // 평가 손익 (자가/갭투자용)
+        // 💡 4. [최종 퍼즐 완치] 평가 손익 연산 기폭 장치 개조
+        // 전세 거주(TENANT_LEASE)를 제외한 실소유 자산(자가, 갭투자, 월세임대) 전체에 시세 차익 연동 보장
         let pnlText = '-';
-        if ((hType === 'OWN' || hType === 'LEASE') && purchaseVal > 0 && liveCurrentPrice > 0) {
+        if (hType !== 'TENANT_LEASE' && purchaseVal > 0 && liveCurrentPrice > 0) {
             const diff = liveCurrentPrice - purchaseVal;
             const sign = diff > 0 ? '+' : '';
             const color = diff > 0 ? 'text-rose-500' : (diff < 0 ? 'text-blue-500' : 'text-slate-500');
