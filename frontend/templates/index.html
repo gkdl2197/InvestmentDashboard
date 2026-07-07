@@ -966,29 +966,28 @@ function renderRealEstateTable(holdingAssets) {
     tbody.innerHTML = holdingAssets.map(item => {
         const hType = item.holding_type;
         
-        // 💡 안전장치: 문자열로 들어올 수 있는 금액 데이터들을 안전하게 숫자로 변환
+        // 💡 [데이터 유연성 가드] 문자열 제거 및 가능한 모든 API 백엔드 필드 키를 스캐닝합니다.
         const parseNum = (val) => {
             if (!val) return 0;
             if (typeof val === 'number') return val;
             return parseFloat(String(val).replace(/,/g, '')) || 0;
         };
 
-        const depositVal = parseNum(item.deposit || item.deposit_amount);
+        // 전세 보증금 필드 후보 매핑 파이프라인
+        const depositVal = parseNum(item.deposit || item.deposit_amount || item.deposit_amt || item.purchase_price);
         const purchaseVal = parseNum(item.purchase_price);
-        const currentVal = parseNum(item.current_price);
-        const debtVal = parseNum(item.debt || item.loan_amount || item.loan);
+        const currentVal = parseNum(item.current_price || item.current_amt || item.price);
+        const debtVal = parseNum(item.debt || item.loan_amount || item.loan_amt || item.loan);
 
         // 💡 1. [자가 vs 전세 스위칭] 매입가 or 내 전세 보증금
         let investValue = '-';
-        if (hType === 'TENANT_LEASE') {
-            // 전세 거주일 때는 '내 전세 보증금'을 주황색으로 강조하여 표기
+        if (hType === 'TENANT_LEASE' || item.holding_type_display?.includes('전세')) {
             investValue = depositVal > 0 ? `<span class="text-amber-600 font-bold">₩${depositVal.toLocaleString()}</span>` : '-';
         } else {
-            // 그 외(자가 등)일 때는 '최초 매입가' 표기
             investValue = purchaseVal > 0 ? `₩${purchaseVal.toLocaleString()}` : '-';
         }
 
-        // 💡 2. [임대 수익 날림] 갭투자/월세 모드일 때만 표기, 전세/자가일 때는 쿨하게 '-'
+        // 💡 2. [임대 수익 날림]
         let leaseValue = '-';
         if (hType === 'LEASE' || hType === 'MONTHLY') {
             const dep = depositVal > 0 ? `보: ₩${depositVal.toLocaleString()}` : '';
@@ -996,7 +995,7 @@ function renderRealEstateTable(holdingAssets) {
             leaseValue = [dep, rent].filter(Boolean).join('<br>') || '-';
         }
 
-        // 💡 3. 평가 손익 (자가/갭투자일때만 노출)
+        // 💡 3. 평가 손익
         let pnlText = '-';
         if ((hType === 'OWN' || hType === 'LEASE') && purchaseVal > 0 && currentVal > 0) {
             const diff = currentVal - purchaseVal;
@@ -1005,7 +1004,6 @@ function renderRealEstateTable(holdingAssets) {
             pnlText = `<span class="${color} font-bold">${sign}₩${diff.toLocaleString()}</span>`;
         }
 
-        // 💡 순정 코드의 UI 마크업 구조를 100% 그대로 유지
         return `
             <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                 <td class="px-4 py-3 text-sm font-bold text-slate-800 whitespace-nowrap">${item.name}</td>
@@ -1028,13 +1026,14 @@ function renderRealEstateTable(holdingAssets) {
     }).join('');
 }
 
-       async function renderWatchlistTable(assets) {
-    // 💡 1. 겹침 방지를 위해 최상위 컨테이너를 정확하게 타겟팅합니다.
-    const container = document.getElementById('re-watchlist-container') || document.getElementById('re-watchlist-body')?.parentElement?.parentElement;
-    if (!container) return;
+      async function renderWatchlistTable(assets) {
+    // 💡 부모 테이블 래퍼(Card UI가 들어갈 자리)를 유연하게 찾습니다.
+    const tbody = document.getElementById('re-watchlist-body');
+    if (!tbody) return;
 
-    // 💡 2. [핵심] 기존에 렌더링되어 있던 네이버 부동산 테이블이나 중복된 요소를 완전히 밀어버립니다.
-    container.innerHTML = ''; 
+    // 💡 [핵심] 기존의 완고한 테이블 structure(thead, table 태그 등)를 완전히 거세하고 그리드 영역으로 치환합니다.
+    const tableWrapper = tbody.closest('table') || tbody.parentElement;
+    const container = tableWrapper.parentElement;
 
     if (!assets || assets.length === 0) {
         container.innerHTML = `
@@ -1045,14 +1044,14 @@ function renderRealEstateTable(holdingAssets) {
         return;
     }
 
-    // 💡 3. 깨끗해진 컨테이너에 단 하나의 제목과 카드 그리드 틀만 주입합니다.
+    // 💡 겹침 현상과 테이블 잔재를 완벽히 날려버리고 수려한 Antigravity 카드 Grid 레이아웃 세팅
     container.innerHTML = `
         <div class="mb-5 flex items-center justify-between">
             <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-bell text-amber-500"></i>
                 관심부동산 실시간 모니터링 현황
             </h3>
-            <span class="text-[11px] bg-slate-100 text-slate-500 px-2.5 py-1 rounded-md font-semibold">중개업소 실시간 최저가 기준</span>
+            <span class="text-[11px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold">중개업소 실시간 최저가 기준</span>
         </div>
         <div id="re-watchlist-card-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             </div>
@@ -1060,11 +1059,10 @@ function renderRealEstateTable(holdingAssets) {
 
     const grid = document.getElementById('re-watchlist-card-grid');
 
-    // 4. 백엔드 경량화 데이터 병렬 로드 및 카드 생성
     const cardPromises = assets.map(async (item) => {
-        let livePrice = 0;    // 최근 실거래가
-        let estPrice = 0;     // 최근 시세 (시장 추정가)
-        let targetPrice = item.target_price || 0; // 목표 매수가
+        let livePrice = 0;
+        let estPrice = 0;
+        let targetPrice = item.target_price || 0;
         
         try {
             const res = await fetch(`/api/real-estate/analysis?aptCode=${item.complex_code}&area=${item.area}&targetPrice=${targetPrice}`);
@@ -1078,13 +1076,11 @@ function renderRealEstateTable(holdingAssets) {
             console.error("관심종목 데이터 로드 실패:", e);
         }
 
-        // 매수 타이밍 시그널 배지 매핑
         const isSignalHit = estPrice > 0 && targetPrice > 0 && estPrice <= targetPrice;
         const badgeElement = isSignalHit 
             ? `<span class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-black border border-rose-100 animate-pulse flex items-center gap-1"><i class="fa-solid fa-fire-flame-curved"></i> 매수 기회!</span>`
             : `<span class="px-2.5 py-1 bg-slate-50 text-slate-400 rounded-lg text-xs font-bold border border-slate-100">추적 중</span>`;
 
-        // 금액 단위 한글 포맷 헬퍼
         const formatKoreanPrice = (num) => {
             if (!num || num === 0) return "-";
             const eok = Math.floor(num / 100000000);
@@ -1112,7 +1108,7 @@ function renderRealEstateTable(holdingAssets) {
                             <span class="font-mono font-bold text-slate-700">${formatKoreanPrice(livePrice)}</span>
                         </div>
                         <div class="flex justify-between items-center text-sm border-t border-slate-200/50 pt-2.5">
-                            <span class="text-slate-600 font-extrabold flex items-center gap-1">최근 시세</span>
+                            <span class="text-slate-600 font-extrabold">최근 시세</span>
                             <span class="font-mono font-black text-indigo-600">${formatKoreanPrice(estPrice)}</span>
                         </div>
                         <div class="flex justify-between items-center text-xs border-t border-slate-200/50 pt-2.5">
@@ -1134,6 +1130,7 @@ function renderRealEstateTable(holdingAssets) {
     const cards = await Promise.all(cardPromises);
     grid.innerHTML = cards.join('');
 }
+
     </script>
 </body>
 </html>
